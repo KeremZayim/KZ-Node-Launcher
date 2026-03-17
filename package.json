@@ -1,6 +1,10 @@
 {
   "name": "node-launcher",
+<<<<<<< HEAD
   "version": "1.0.2",
+=======
+  "version": "1.0.1",
+>>>>>>> 1199f332e80a1404da257b04f522b76d573f1c8e
   "description": "Kerem Zayim tarafından geliştirilen, Node.js projelerini kolayca yönetip başlatmanızı sağlayan Node Launcher uygulaması.",
   "main": "main.js",
   "scripts": {
@@ -8,18 +12,12 @@
     "pack": "electron-builder --dir",
     "dist": "electron-builder"
   },
-  "keywords": [
-    "node",
-    "launcher",
-    "process-manager",
-    "dashboard",
-    "electron"
-  ],
   "author": "Kerem Zayim",
   "license": "ISC",
-  "type": "commonjs",
   "dependencies": {
+    "electron-log": "^5.4.3",
     "electron-store": "^6.0.1",
+    "electron-updater": "^6.6.2",
     "iconv-lite": "^0.7.1",
     "pidusage": "^4.0.1",
     "systeminformation": "^5.28.1"
@@ -30,10 +28,18 @@
   },
   "build": {
     "appId": "com.keremzayim.nodelauncher",
-    "productName": "KZ | Node Launcher",
+    "productName": "KZ-Node-Launcher",
+    "artifactName": "${productName}-Setup-${version}.${ext}",
     "directories": {
       "output": "dist"
     },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "KeremZayim",
+        "repo": "KZ-Process-Manager"
+      }
+    ],
     "win": {
       "target": "nsis",
       "icon": "public/images/icon.png"

@@ -8,7 +8,7 @@
       rel="stylesheet"
     />
   </head>
-  <link rel="stylesheet" href="src/styles.css">
+  <link rel="stylesheet" href="src/styles.css" />
   <body>
     <div id="title-bar">
       <div
@@ -37,9 +37,7 @@
       <div class="header-section">
         <div>
           <h2>Projelerim</h2>
-          <div
-            style="color: var(--text-dim); font-size: 13px; margin-top: 5px"
-          >
+          <div style="color: var(--text-dim); font-size: 13px; margin-top: 5px">
             Yönetim Paneli
           </div>
         </div>
@@ -227,6 +225,7 @@
         </div>
       </div>
     </div>
+
     <div id="autoStartModal" class="modal-overlay">
       <div class="modal-content" style="width: 400px">
         <div class="modal-header">
@@ -254,7 +253,10 @@
       </div>
     </div>
 
+<<<<<<< HEAD
     </div>
+=======
+>>>>>>> 1199f332e80a1404da257b04f522b76d573f1c8e
     <div id="editModal" class="modal-overlay">
       <div class="modal-content">
         <div class="modal-header">
@@ -356,6 +358,7 @@
         </div>
       </div>
     </div>
+
     <div id="deleteModal" class="modal-overlay">
       <div class="modal-content" style="width: 350px; text-align: center">
         <div style="font-size: 50px; margin-bottom: 10px">⚠️</div>
@@ -377,6 +380,7 @@
         </div>
       </div>
     </div>
+
     <div id="alertModal" class="modal-overlay" style="z-index: 300">
       <div class="modal-content" style="width: 350px; text-align: center">
         <div style="font-size: 40px; margin-bottom: 15px">ℹ️</div>
@@ -393,6 +397,163 @@
         <div class="modal-footer" style="justify-content: center">
           <button class="btn-save" id="closeAlertModalBtn" style="width: 100%">
             Tamam
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div id="whatsNewModal" class="modal-overlay" style="z-index: 500">
+      <div class="modal-content" style="width: 500px; max-height: 80vh">
+        <div class="modal-header">
+          <span id="whatsNewTitle">🚀 Yeni Sürüm Yayında!</span>
+          <span style="cursor: pointer" id="closeWhatsNewModalBtn">✕</span>
+        </div>
+        <div
+          id="whatsNewContent"
+          style="
+            padding: 15px 0;
+            font-size: 14px;
+            color: #ccc;
+            line-height: 1.6;
+            overflow-y: auto;
+            max-height: 350px;
+            white-space: pre-wrap;
+          "
+        >
+          Yükleniyor...
+        </div>
+        <div class="modal-footer">
+          <button class="btn-save" id="closeWhatsNewBtn" style="width: 100%">
+            Harika!
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <button
+      id="openSettingsBtn"
+      title="Ayarlar"
+      style="
+        position: fixed;
+        bottom: 20px;
+        left: 20px;
+        background: transparent;
+        border: none;
+        color: #555;
+        cursor: pointer;
+        z-index: 100;
+        transition: color 0.3s;
+      "
+    >
+      <svg
+        width="24"
+        height="24"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <circle cx="12" cy="12" r="3"></circle>
+        <path
+          d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"
+        ></path>
+      </svg>
+    </button>
+
+    <div id="settingsModal" class="modal-overlay">
+      <div class="modal-content" style="width: 400px">
+        <div class="modal-header">
+          <span>⚙️ Sistem Ayarları</span>
+          <span style="cursor: pointer" id="closeSettingsModalBtn">✕</span>
+        </div>
+        <div class="settings-body" style="padding: 10px 0">
+          <div
+            style="
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              margin-bottom: 20px;
+            "
+          >
+            <div>
+              <div style="font-size: 14px; color: #eee">
+                Windows Başlangıcında Çalıştır
+              </div>
+              <div style="font-size: 11px; color: #666">
+                Bilgisayar açıldığında otomatik açılır.
+              </div>
+            </div>
+            <label class="switch"
+              ><input type="checkbox" id="winAutoStartToggle" /><span
+                class="slider"
+              ></span
+            ></label>
+          </div>
+
+          <div
+            style="
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              margin-bottom: 20px;
+            "
+          >
+            <div>
+              <div style="font-size: 14px; color: #eee">
+                Otomatik Güncelleme
+              </div>
+              <div style="font-size: 11px; color: #666">
+                Güncellemeleri arka planda denetler.
+              </div>
+            </div>
+            <label class="switch"
+              ><input type="checkbox" id="autoUpdateToggle" checked /><span
+                class="slider"
+              ></span
+            ></label>
+          </div>
+
+          <div
+            style="
+              border-top: 1px solid #333;
+              padding-top: 15px;
+              margin-top: 15px;
+            "
+          >
+            <div
+              style="
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+              "
+            >
+              <span style="font-size: 12px; color: #888"
+                >Mevcut Versiyon: <b id="currentVerText">1.0.0</b></span
+              >
+              <button
+                id="manualCheckUpdateBtn"
+                class="btn-save"
+                style="font-size: 11px; padding: 5px 10px"
+              >
+                Güncellemeleri Denetle
+              </button>
+            </div>
+            <div
+              id="updateStatusMsg"
+              style="
+                font-size: 11px;
+                color: var(--success);
+                margin-top: 8px;
+                text-align: right;
+              "
+            ></div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-cancel" id="closeSettingsBtn" style="width: 100%">
+            Kapat
           </button>
         </div>
       </div>

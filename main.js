@@ -1,26 +1,15 @@
 /*
   _  __  _____   ____    _____   __  __   _____      _     __   __  ___   __  __ 
  | |/ / | ____| |  _ \  | ____| |  \/  | |__  /     / \    \ \ / / |_ _| |  \/  |
- | ' /  |  _|   | |_) | |  _|   | |\/| |   / /     / _ \    \ V /   | |  | |\/| |
- | . \  | |___  |  _ <  | |___  | |  | |  / /_    / ___ \    | |    | |  | |  | |
+ | ' /  |  _|   | |_) | |  _|   | |\/| |   / /     / _ \    \ V /   | |   | |\/| |
+ | . \  | |___  |  _ <  | |___  | |  | |  / /_    / ___ \    | |    | |   | |\/| |
  |_|\_\ |_____| |_| \_\ |_____| |_|  |_| /____|  /_/   \_\   |_|   |___| |_|  |_|
-                                                                                 
+                                                                                
  ===============================================================================
- DOSYA: 1 - main.js (Backend)
+ DOSYA: 1 - main.js (Backend) - FIX: UI FLICKER & STABLE STATUS
  ===============================================================================
- 
- KOD HARİTASI:
- 1.1 - Kütüphane Tanımlamaları ve Değişkenler
- 1.2 - Pencere Oluşturma (createWindow)
- 1.3 - Tray (Alt Bar) İkonu ve Menüsü
- 1.4 - İşlem Sonlandırma (Stop Logic) - [GÜNCELLENDİ]
- 1.5 - Uygulama Başlatma ve Döngüler
- 1.6 - Node İşlemi Başlatma Fonksiyonu
- 1.7 - IPC İletişim
- 1.8 - Ghost Process Tarama
 */
 
-// 1.1 - Kütüphane Tanımlamaları ve Değişkenler
 const {
   app,
   BrowserWindow,
@@ -35,14 +24,37 @@ const path = require("path");
 const Store = require("electron-store");
 const { spawn, exec } = require("child_process");
 const pidusage = require("pidusage");
+const { autoUpdater } = require("electron-updater"); // Yeni
+const log = require("electron-log"); // Yeni
 
 const store = new Store();
+// --- TEKİL ÖRNEK KİLİDİ (SINGLE INSTANCE LOCK) ---
+const gotTheLock = app.requestSingleInstanceLock();
+if (!gotTheLock) {
+  // Eğer kilit alınamadıysa (yani program zaten açıksa), bu ikinci kopyayı kapat
+  app.quit();
+} else {
+  // İkinci bir kopya açılmaya çalışıldığında tetiklenir
+  app.on("second-instance", (event, commandLine, workingDirectory) => {
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore(); // Simge durumundaysa geri getir
+      if (!mainWindow.isVisible()) mainWindow.show(); // Gizliyse (Tray'deyse) göster
+      mainWindow.focus(); // Pencereyi öne getir ve odaklan
+    }
+  });
+}
+
 let mainWindow;
 let tray = null;
 let isQuitting = false;
 let runningProcesses = {};
+let isInitialScanDone = false;
 
-// 1.2 - Pencere Oluşturma (createWindow)
+// AutoUpdater Ayarları
+autoUpdater.logger = log;
+autoUpdater.autoDownload = store.get("settings.autoUpdate", true);
+
+// --- 1. PENCERE OLUŞTURMA ---
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1100,
@@ -53,19 +65,11 @@ function createWindow() {
     frame: false,
     titleBarStyle: "hidden",
     icon: path.join(__dirname, "public/images/icon.png"),
-    webPreferences: {
-      nodeIntegration: true,
-      contextIsolation: false,
-    },
+    webPreferences: { nodeIntegration: true, contextIsolation: false },
   });
-
   mainWindow.loadFile("public/index.html");
-
-  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    if (url.startsWith("http")) {
-      shell.openExternal(url);
-    }
-    return { action: "deny" };
+  mainWindow.webContents.on("did-finish-load", () => {
+    if (!isInitialScanDone) setTimeout(runWatchdog, 1000);
   });
 
   mainWindow.on("close", (event) => {
@@ -75,29 +79,36 @@ function createWindow() {
     }
     return false;
   });
-}
+  // Versiyon bilgisini frontend'e gönder
+  mainWindow.webContents.on("did-finish-load", () => {
+    mainWindow.webContents.send("version-info", app.getVersion());
+  });
 
-// 1.3 - Tray (Alt Bar) İkonu ve Menüsü
-function createTray() {
-  const iconPath = path.join(__dirname, "public/images/icon.png");
-  const icon = nativeImage.createFromPath(iconPath);
+  // Güncelleme Olay Dinleyicileri
+  autoUpdater.on("update-available", (info) => {
+    mainWindow.webContents.send(
+      "update-status",
+      `Yeni sürüm bulundu (v${info.version}). İndiriliyor...`
+    );
+  });
 
-  tray = new Tray(icon);
-  tray.setToolTip("KZ | Node Launcher");
+  autoUpdater.on("download-progress", (progressObj) => {
+    let log_message = "İndiriliyor: %" + Math.floor(progressObj.percent);
+    mainWindow.webContents.send("update-status", log_message);
+  });
+  autoUpdater.on("update-downloaded", (info) => {
+    mainWindow.webContents.send(
+      "update-status",
+      "Güncelleme hazır. 5 saniye içinde kurulacak..."
+    );
 
-  const contextMenu = Menu.buildFromTemplate([
-    { label: "Paneli Goster", click: () => mainWindow.show() },
-    { label: "Hepsini Durdur", click: stopAllProcesses },
-    { type: "separator" },
-    {
-      label: "Cikis",
-      click: () => {
-        isQuitting = true;
-        app.quit();
-      },
-    },
-  ]);
+    // Kullanıcıyı bekletmeden veya zorlayarak kurmak için:
+    setTimeout(() => {
+      autoUpdater.quitAndInstall();
+    }, 5000);
+  });
 
+<<<<<<< HEAD
   tray.setContextMenu(contextMenu);
   tray.on("double-click", () => {
     if (mainWindow.isMinimized()) mainWindow.restore();
@@ -105,39 +116,171 @@ function createTray() {
     mainWindow.focus();
   });
 }
+=======
+  autoUpdater.on("error", (err) => {
+    // Hatanın detayını frontend'e gönder
+    mainWindow.webContents.send("update-status", "Hata: " + err.message);
+    console.error("GÜNCELLEME DETAYLI HATA:", err);
+  });
+>>>>>>> 1199f332e80a1404da257b04f522b76d573f1c8e
 
-// 1.4 - İşlem Sonlandırma (Stop Logic)
-function stopAllProcesses() {
-  Object.keys(runningProcesses).forEach((id) => {
-    if (runningProcesses[id]) {
-      // İşlemi kapat
-      if (process.platform === "win32" && runningProcesses[id].pid) {
-        exec(`taskkill /pid ${runningProcesses[id].pid} /T /F`);
-      } else {
-        runningProcesses[id].kill();
-      }
+  // Güncelleme bulunamadığında "Denetleniyor" yazısında takılmaması için:
+  autoUpdater.on("update-not-available", () => {
+    mainWindow.webContents.send("update-status", "Uygulama güncel.");
+  });
 
-      // Arayüze Haber Ver (Yeşil İkonu Söndürmek İçin)
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send("app-status-change", {
-          appId: parseInt(id),
-          isRunning: false,
-        });
-        mainWindow.webContents.send("process-log", {
-          appId: parseInt(id),
-          log: "\n🔴 --- Tümü Durduruldu (Tray Menü) ---\n",
-        });
-      }
+  mainWindow.webContents.on("did-finish-load", () => {
+    const lastRunVersion = store.get("lastRunVersion", "0.0.0");
+    const currentVersion = app.getVersion();
+
+    // Eğer kurulu versiyon, son çalıştırılan versiyondan büyükse (Update olduysa)
+    if (currentVersion !== lastRunVersion) {
+      mainWindow.webContents.send("show-whats-new", currentVersion);
+      // Yeni versiyonu kaydet ki bir sonraki açılışta tekrar çıkmasın
+      store.set("lastRunVersion", currentVersion);
     }
   });
-  runningProcesses = {};
+
 }
 
-// 1.5 - Uygulama Başlatma ve Döngüler
+// --- 2. TRAY MENÜSÜ ---
+function createTray() {
+  const icon = nativeImage.createFromPath(
+    path.join(__dirname, "public/images/icon.png")
+  );
+  tray = new Tray(icon);
+  tray.setContextMenu(
+    Menu.buildFromTemplate([
+      { label: "Paneli Goster", click: () => mainWindow.show() },
+      { label: "Hepsini Durdur", click: stopAllProcesses },
+      { type: "separator" },
+      {
+        label: "Cikis",
+        click: () => {
+          isQuitting = true;
+          app.quit();
+        },
+      },
+    ])
+  );
+}
+
+// --- 3. OTOMATİK BAŞLATMA ---
+function runAutoStartSequence() {
+  const savedApps = store.get("apps") || [];
+  savedApps.forEach((app) => {
+    if (app.autoStart && !runningProcesses[app.id]) {
+      startNodeProcess(app.id, app.path, true);
+    }
+  });
+}
+
+// --- 4. WATCHDOG (KARARLI TARAMA) ---
+function runWatchdog() {
+  const savedAppsCheck = store.get("apps") || [];
+  if (savedAppsCheck.length === 0) {
+    isInitialScanDone = true;
+    return;
+  }
+
+  // Sadece node.exe süreçlerini al (Windows için)
+  const wmicCommand = `wmic process where "name='node.exe'" get ProcessId,CommandLine /format:csv`;
+
+  exec(wmicCommand, { maxBuffer: 10e6 }, (err, stdout) => {
+    if (!isInitialScanDone) {
+      isInitialScanDone = true;
+      setTimeout(runAutoStartSequence, 500);
+    }
+
+    if (err || !stdout) return;
+
+    const lines = stdout.split("\r\n");
+    const systemProcesses = [];
+
+    lines.forEach((line) => {
+      const parts = line.split(",");
+      if (parts.length < 2) return;
+      const pid = parseInt(parts[parts.length - 1]);
+      parts.pop();
+      parts.shift();
+      const cmdRaw = parts.join(",").toLowerCase().trim().replace(/\//g, "\\");
+      if (pid) systemProcesses.push({ pid, cmd: cmdRaw });
+    });
+
+    const now = Date.now();
+
+    savedAppsCheck.forEach((app) => {
+      const existing = runningProcesses[app.id];
+      const appPathNorm = path.normalize(app.path).toLowerCase();
+      const appDirName = path.basename(path.dirname(appPathNorm)).toLowerCase();
+      const appFileName = path.basename(appPathNorm).toLowerCase();
+
+      // Sistemde bu projeyle eşleşen bir süreç var mı?
+      const foundInSystem = systemProcesses.find((proc) => {
+        // Başka bir kart tarafından halihazırda sahiplenilmiş PID'leri atla (existing hariç)
+        const isClaimedByOther = Object.entries(runningProcesses).some(
+          ([id, rp]) => rp.pid === proc.pid && id !== app.id.toString()
+        );
+        if (isClaimedByOther) return false;
+
+        return (
+          proc.cmd.includes(appPathNorm) ||
+          (proc.cmd.includes(appDirName) && proc.cmd.includes(appFileName))
+        );
+      });
+
+      if (foundInSystem) {
+        // --- DURUM A: SÜREÇ BULUNDU ---
+        if (!existing) {
+          // Yeni tespit (Dış kaynak)
+          runningProcesses[app.id] = {
+            pid: foundInSystem.pid,
+            external: true,
+            lastSeen: now,
+          };
+          updateUI(app.id, true);
+        } else {
+          // Zaten vardı, bilgilerini güncelle
+          existing.pid = foundInSystem.pid;
+          existing.lastSeen = now;
+        }
+      } else {
+        // --- DURUM B: SÜREÇ SİSTEMDE GÖRÜNMEDİ ---
+        if (existing) {
+          // Eğer süreç yeni başlatıldıysa (ilk 10 saniye) veya
+          // geçici bir tarama hatasıysa hemen kapatma (5 saniye bekle)
+          const age = now - (existing.startTime || 0);
+          const silenceDuration = now - (existing.lastSeen || now);
+
+          if (age < 10000 || silenceDuration < 5000) {
+            // Henüz çok yeni veya kısa süreli bir kayıp, UI'yı bozma
+            return;
+          }
+
+          // Gerçekten kapandığına ikna olduk
+          delete runningProcesses[app.id];
+          updateUI(app.id, false);
+        }
+      }
+    });
+  });
+}
+
+function updateUI(appId, isRunning) {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send("app-status-change", {
+      appId: parseInt(appId),
+      isRunning,
+    });
+  }
+}
+
 app.whenReady().then(() => {
   createWindow();
   createTray();
+  setInterval(runWatchdog, 3000);
 
+<<<<<<< HEAD
   // Versiyon bilgisini gönder
   setTimeout(() => {
     if (mainWindow && !mainWindow.isDestroyed()) {
@@ -157,6 +300,12 @@ app.whenReady().then(() => {
       }, 1500);
     }
   });
+=======
+  // EKLENEN: Ayar açıksa güncellemeleri denetle
+  if (store.get("settings.autoUpdate", true)) {
+    autoUpdater.checkForUpdatesAndNotify();
+  }
+>>>>>>> 1199f332e80a1404da257b04f522b76d573f1c8e
 
   // Start Minimized Check
   const settings = store.get("settings") || { startMinimized: false };
@@ -165,93 +314,18 @@ app.whenReady().then(() => {
   }
 
   setInterval(() => {
-    const activePids = [];
-    Object.keys(runningProcesses).forEach((id) => {
-      const proc = runningProcesses[id];
-      if (proc && proc.pid) {
-        try {
-          process.kill(proc.pid, 0);
-          activePids.push(proc.pid);
-        } catch (e) {
-          delete runningProcesses[id];
-          if (mainWindow)
-            mainWindow.webContents.send("app-status-change", {
-              appId: parseInt(id),
-              isRunning: false,
-            });
-        }
-      }
-    });
-
-    if (activePids.length > 0) {
+    const activePids = Object.values(runningProcesses)
+      .map((p) => p.pid)
+      .filter(Boolean);
+    if (activePids.length > 0 && mainWindow && !mainWindow.isDestroyed()) {
       pidusage(activePids, (err, stats) => {
-        if (!err && mainWindow && !mainWindow.isDestroyed()) {
-          mainWindow.webContents.send("resource-update", stats);
-        }
+        if (!err) mainWindow.webContents.send("resource-update", stats);
       });
     }
   }, 2000);
-
-  setInterval(() => {
-    const savedAppsCheck = store.get("apps") || [];
-    if (savedAppsCheck.length === 0) return;
-
-    const wmicCommand = `wmic process where "name='node.exe' or name='electron.exe'" get ProcessId,CommandLine /format:csv`;
-
-    exec(wmicCommand, { maxBuffer: 5e6 }, (err, stdout) => {
-      if (err || !stdout) return;
-
-      const lines = stdout.split("\r\n");
-      const systemProcesses = [];
-
-      lines.forEach((line) => {
-        const parts = line.split(",");
-        if (parts.length < 2) return;
-        const pid = parseInt(parts[parts.length - 1]);
-        const cmdRaw = line.toLowerCase();
-        if (!pid || !cmdRaw.includes("node")) return;
-        systemProcesses.push({ pid, cmd: cmdRaw });
-      });
-
-      savedAppsCheck.forEach((app) => {
-        const appFileName = path.basename(app.path).toLowerCase();
-        const foundProc = systemProcesses.find((proc) =>
-          proc.cmd.includes(appFileName)
-        );
-
-        if (foundProc && !runningProcesses[app.id]) {
-          console.log(`>> BULUNDU: ${app.name} (PID: ${foundProc.pid})`);
-          runningProcesses[app.id] = {
-            pid: foundProc.pid,
-            external: true,
-            kill: () => {
-              if (process.platform === "win32")
-                exec(`taskkill /pid ${foundProc.pid} /T /F`);
-              else process.kill(foundProc.pid);
-            },
-          };
-          if (mainWindow)
-            mainWindow.webContents.send("app-status-change", {
-              appId: app.id,
-              isRunning: true,
-            });
-        } else if (
-          !foundProc &&
-          runningProcesses[app.id] &&
-          runningProcesses[app.id].external
-        ) {
-          delete runningProcesses[app.id];
-          if (mainWindow)
-            mainWindow.webContents.send("app-status-change", {
-              appId: app.id,
-              isRunning: false,
-            });
-        }
-      });
-    });
-  }, 3000);
 });
 
+<<<<<<< HEAD
 // 1.6 - Node İşlemi Başlatma Fonksiyonu
 function startNodeProcess(appId, appPath, isAuto = false) {
   if (runningProcesses[appId]) return;
@@ -283,29 +357,60 @@ function startNodeProcess(appId, appPath, isAuto = false) {
       env: { ...process.env, FORCE_COLOR: "true", LANG: "tr_TR.UTF-8" },
     }
   );
+=======
+function stopProcessLogic(appId) {
+  const proc = runningProcesses[appId];
+  if (proc) {
+    if (process.platform === "win32" && proc.pid) {
+      exec(`taskkill /pid ${proc.pid} /T /F`);
+    } else if (proc.kill) {
+      proc.kill();
+    }
+    delete runningProcesses[appId];
+    updateUI(appId, false);
+  }
+}
 
-  runningProcesses[appId] = child;
-  if (mainWindow)
-    mainWindow.webContents.send("process-started", {
-      appId: appId,
-      pid: child.pid,
-    });
+function startNodeProcess(appId, scriptPath, isAuto = false) {
+  if (runningProcesses[appId]) return;
+
+  const child = spawn("node", [`"${scriptPath}"`], {
+    cwd: path.dirname(scriptPath),
+    shell: true,
+    env: { ...process.env, FORCE_COLOR: "true" },
+  });
+>>>>>>> 1199f332e80a1404da257b04f522b76d573f1c8e
+
+  // START_TIME ve LAST_SEEN ekleyerek Watchdog'a "bu sürece 10 saniye dokunma" diyoruz
+  runningProcesses[appId] = {
+    pid: child.pid,
+    child: child,
+    external: false,
+    startTime: Date.now(),
+    lastSeen: Date.now(),
+    kill: () => child.kill(),
+  };
+
+  updateUI(appId, true);
 
   child.stdout.on("data", (data) => {
     if (mainWindow && !mainWindow.isDestroyed())
       mainWindow.webContents.send("process-log", {
-        appId: appId,
+        appId,
         log: data.toString(),
       });
   });
+
   child.stderr.on("data", (data) => {
     if (mainWindow && !mainWindow.isDestroyed())
       mainWindow.webContents.send("process-log", {
-        appId: appId,
+        appId,
         log: `HATA: ${data.toString()}`,
       });
   });
+
   child.on("close", (code) => {
+<<<<<<< HEAD
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send("process-log", {
         appId: appId,
@@ -317,17 +422,27 @@ function startNodeProcess(appId, appPath, isAuto = false) {
       });
     }
     delete runningProcesses[appId];
+=======
+    if (runningProcesses[appId] && runningProcesses[appId].pid === child.pid) {
+      delete runningProcesses[appId];
+      updateUI(appId, false);
+      if (mainWindow && !mainWindow.isDestroyed())
+        mainWindow.webContents.send("process-log", {
+          appId,
+          log: `\n--- Kapanis (Kod: ${code}) ---`,
+        });
+    }
+>>>>>>> 1199f332e80a1404da257b04f522b76d573f1c8e
   });
 }
 
-// 1.7 - IPC İletişim
+// IPC HANDLERS
 ipcMain.on("minimize-window", () => mainWindow.minimize());
 ipcMain.on("close-window", () => mainWindow.hide());
 ipcMain.on("maximize-window", () => {
   if (mainWindow.isMaximized()) mainWindow.unmaximize();
   else mainWindow.maximize();
 });
-
 ipcMain.handle("select-file", async () => {
   const result = await dialog.showOpenDialog(mainWindow, {
     properties: ["openFile"],
@@ -335,6 +450,7 @@ ipcMain.handle("select-file", async () => {
   });
   return result.filePaths[0];
 });
+<<<<<<< HEAD
 
 ipcMain.handle("select-folder", async () => {
   const result = await dialog.showOpenDialog(mainWindow, {
@@ -358,50 +474,27 @@ ipcMain.handle("read-package-scripts", async (event, folderPath) => {
   return null;
 });
 
+=======
+>>>>>>> 1199f332e80a1404da257b04f522b76d573f1c8e
 ipcMain.on("add-app", (event, appData) => {
   const apps = store.get("apps") || [];
   apps.push(appData);
   store.set("apps", apps);
   event.sender.send("update-app-list", apps);
 });
-
 ipcMain.handle("get-apps", () => store.get("apps") || []);
-ipcMain.handle("get-process-pid", (event, appId) =>
-  runningProcesses[appId] ? runningProcesses[appId].pid : null
+ipcMain.handle(
+  "get-process-pid",
+  (event, appId) => runningProcesses[appId]?.pid
 );
 ipcMain.handle(
   "get-process-status",
   (event, appId) => !!runningProcesses[appId]
 );
-
 ipcMain.on("start-process", (event, appInfo) =>
   startNodeProcess(appInfo.id, appInfo.path)
 );
-
-ipcMain.on("stop-process", (event, appId) => {
-  if (runningProcesses[appId]) {
-    const pid = runningProcesses[appId].pid;
-    if (process.platform === "win32") exec(`taskkill /pid ${pid} /T /F`);
-    else runningProcesses[appId].kill();
-
-    delete runningProcesses[appId];
-    event.sender.send("process-log", {
-      appId: appId,
-      log: "\n🔴 --- Durduruldu ---\n",
-    });
-  }
-});
-
-ipcMain.handle("select-image", async () => {
-  const result = await dialog.showOpenDialog(mainWindow, {
-    properties: ["openFile"],
-    filters: [
-      { name: "Görseller", extensions: ["png", "jpg", "jpeg", "ico", "svg"] },
-    ],
-  });
-  return result.canceled ? null : result.filePaths[0];
-});
-
+ipcMain.on("stop-process", (event, appId) => stopProcessLogic(appId));
 ipcMain.on("edit-app", (event, updatedApp) => {
   let apps = store.get("apps") || [];
   const index = apps.findIndex((app) => app.id === updatedApp.id);
@@ -411,7 +504,6 @@ ipcMain.on("edit-app", (event, updatedApp) => {
     event.sender.send("update-app-list", apps);
   }
 });
-
 ipcMain.on("update-auto-start", (event, { appId, enabled }) => {
   const apps = store.get("apps") || [];
   const index = apps.findIndex((app) => app.id === appId);
@@ -421,13 +513,13 @@ ipcMain.on("update-auto-start", (event, { appId, enabled }) => {
     event.sender.send("update-app-list", apps);
   }
 });
-
 ipcMain.on("delete-app", (event, appId) => {
   let apps = store.get("apps") || [];
   const newApps = apps.filter((app) => app.id !== appId);
   store.set("apps", newApps);
   event.sender.send("update-app-list", newApps);
 });
+<<<<<<< HEAD
 
 ipcMain.handle("get-settings", () => store.get("settings") || { startMinimized: false, windowsStart: false });
 ipcMain.on("update-settings", (event, newSettings) => {
@@ -444,80 +536,181 @@ ipcMain.on("update-settings", (event, newSettings) => {
 });
 
 // 1.8 - Ghost Process Tarama
+=======
+ipcMain.handle("select-image", async () => {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    properties: ["openFile"],
+    filters: [
+      { name: "Görseller", extensions: ["png", "jpg", "jpeg", "ico", "svg"] },
+    ],
+  });
+  return result.canceled ? null : result.filePaths[0];
+});
+function stopAllProcesses() {
+  Object.keys(runningProcesses).forEach((id) => stopProcessLogic(id));
+}
+>>>>>>> 1199f332e80a1404da257b04f522b76d573f1c8e
 ipcMain.handle("scan-ghost-processes", async () => {
   const myPid = process.pid;
   const resultsMap = new Map();
   const savedApps = store.get("apps") || [];
-  const savedPaths = savedApps.map((a) => path.normalize(a.path).toLowerCase());
-  const SYSTEM_PATHS = [
-    "\\appdata\\",
-    "\\program files",
-    "\\windows\\",
-    "\\discord\\",
-    "\\electron\\",
-    "\\chrome\\",
-    "\\microsoft\\",
-    "\\npm\\",
-  ];
 
-  const netstat = await new Promise((resolve) =>
-    exec("netstat -ano", { maxBuffer: 5e6 }, (_, stdout) => resolve(stdout))
-  );
-  const lines = netstat.split("\n");
+  // Sistem servislerini hariç tutmak için
+  const IGNORED_PATHS = ["\\windows\\system32", "svchost.exe"];
 
-  for (const line of lines) {
-    if (!line.includes("LISTENING") || !line.trim().startsWith("TCP")) continue;
-    const parts = line.trim().split(/\s+/);
-    const pid = parseInt(parts[parts.length - 1]);
-    const port = parts[1].split(":").pop();
-    if (!pid || pid === myPid) continue;
-
-    const cmd = await new Promise((resolve) =>
-      exec(
-        `wmic process where processid=${pid} get CommandLine`,
-        { maxBuffer: 2e6 },
-        (_, stdout) => resolve(stdout || "")
-      )
-    );
-    if (!cmd.toLowerCase().includes("node")) continue;
-
-    const jsMatch = cmd.match(/([^"'\s]+\.(js|mjs|cjs))/i);
-    let displayPath = "Bilinmeyen";
-    let normPath = "";
-
-    if (jsMatch) {
-      displayPath = jsMatch[0];
-      normPath = path.normalize(displayPath).toLowerCase();
-      if (normPath.includes("node_modules")) continue;
-      if (SYSTEM_PATHS.some((p) => normPath.includes(p))) continue;
-      const fileName = path.basename(normPath);
-      if (
-        savedApps.some(
-          (app) => path.basename(app.path).toLowerCase() === fileName
-        )
-      )
-        continue;
-    } else {
-      displayPath = "Komut Satırı İşlemi";
-      normPath = "unknown_" + pid;
-    }
-
-    if (!resultsMap.has(normPath)) {
-      resultsMap.set(normPath, {
-        pid,
-        port,
-        path: displayPath,
-        name: `🌍 Port ${port} (PID: ${pid})`,
-        memory: `PID ${pid}`,
+  try {
+    // 1. ADIM: Netstat ile port dinleyen TÜM işlemleri çek
+    // (Encoding sorunu olmaması için iconv veya chcp kullanılabilir ama basit regex iş görür)
+    const netstat = await new Promise((resolve) => {
+      exec("netstat -ano", { maxBuffer: 10 * 1024 * 1024 }, (err, stdout) => {
+        if (err) resolve("");
+        else resolve(stdout);
       });
+    });
+
+    const lines = netstat.split(/[\r\n]+/);
+
+    for (const line of lines) {
+      const lineTrimmed = line.trim();
+
+      // Sadece TCP bağlantıları
+      if (!lineTrimmed.startsWith("TCP")) continue;
+
+      // Port durumu kontrolü (Türkçe/İngilizce uyumlu)
+      const lineUpper = lineTrimmed.toUpperCase();
+      const isListening =
+        lineUpper.includes("LISTENING") ||
+        lineUpper.includes("DINLIYOR") ||
+        lineUpper.includes("DİNLİYOR");
+
+      if (!isListening) continue;
+
+      // Satırı parçala
+      const parts = lineTrimmed.split(/\s+/);
+      // PID en sondadır
+      const pid = parseInt(parts[parts.length - 1]);
+      // Port bilgisi 2. sıradadır (0.0.0.0:3000)
+      const localAddress = parts[1];
+
+      if (!pid || pid === myPid) continue;
+
+      // Portu temizle (IP kısmını at)
+      const port = localAddress.includes(":")
+        ? localAddress.split(":").pop()
+        : "???";
+
+      // 2. ADIM: Bu PID kimin? (WMIC ile detay sor)
+      // ExecutablePath ve CommandLine istiyoruz
+      const wmicOutput = await new Promise((resolve) => {
+        exec(
+          `wmic process where processid=${pid} get CommandLine,ExecutablePath /format:csv`,
+          { maxBuffer: 2 * 1024 * 1024 },
+          (err, stdout) => resolve(stdout || "")
+        );
+      });
+
+      // WMIC çıktısını temizle
+      const wmicLines = wmicOutput.trim().split(/[\r\n]+/);
+      // Başlık satırını atla, veri satırını al
+      if (wmicLines.length < 2) continue;
+
+      // Veri satırı virgülle ayrılmıştır ama CommandLine içinde de virgül olabilir.
+      // Bu yüzden sondan (ExecutablePath) başa doğru gidelim ya da basitçe string check yapalım.
+      const rawData = wmicLines.slice(1).join(" "); // Bazen birden fazla satıra taşabilir
+      const lowerData = rawData.toLowerCase();
+
+      // KRİTİK KONTROL: Bu bir Node.js işlemi mi?
+      // Sadece node.exe veya electron.exe ise kabul et.
+      const isNode =
+        lowerData.includes("node.exe") || lowerData.includes("electron.exe");
+
+      if (!isNode) continue;
+
+      // --- PATH VE İSİM BULMA MANTIĞI ---
+      let displayPath = "Bilinmeyen Konum";
+      let displayName = `Node App (Port ${port})`;
+
+      // 1. Deneme: .js dosyası var mı?
+      const jsMatch = rawData.match(
+        /(?:"|')([^"']+\.(?:js|mjs|cjs))(?:"|')|([^\s"']+\.(?:js|mjs|cjs))/i
+      );
+
+      // 2. Deneme: Eğer .js yoksa, 'npm start' gibi bir şey mi?
+      // Genelde CommandLine içinde çalışılan klasör yazar
+
+      if (jsMatch) {
+        displayPath = jsMatch[1] || jsMatch[2];
+        displayName = path.basename(displayPath);
+      } else {
+        // Dosya bulunamadı ama Node çalışıyor (Örn: REPL veya Binary)
+        // ExecutablePath'i kullanabiliriz veya CommandLine'ın tamamını gösteririz
+        displayPath = rawData.split(",").pop() || "Yol Bulunamadi"; // Kabaca path almaya çalış
+
+        // Eğer yol çok uzunsa veya bozuksa temizle
+        if (displayPath.length > 100) displayPath = "Komut Satiri Baslatmasi";
+
+        displayName = "Node Script/Servis";
+      }
+
+      // Sistem dosyası koruması
+      if (IGNORED_PATHS.some((p) => lowerData.includes(p))) continue;
+
+      // Kayıtlı uygulamalarda zaten bu Port var mı?
+      // (Eğer varsa ghost olarak gösterme, zaten takipli)
+      // Ancak kullanıcı "bulmuyor" dediği için bu kontrolü esnetelim, her şeyi göstersin.
+
+      // Benzersiz ID (PID + Port)
+      const uniqueKey = `ghost_${pid}_${port}`;
+
+      if (!resultsMap.has(uniqueKey)) {
+        resultsMap.set(uniqueKey, {
+          pid: pid,
+          port: port,
+          path: displayPath,
+          name: `🌍 Port ${port} - ${displayName}`,
+          memory: `PID: ${pid}`,
+        });
+      }
     }
+  } catch (error) {
+    console.error("Ghost scan hatasi:", error);
   }
+
   return [...resultsMap.values()];
 });
 
+<<<<<<< HEAD
 ipcMain.on("check-for-updates", (event) => {
   // Simüle edilmiş güncelleme kontrolü
   setTimeout(() => {
     event.sender.send("update-status", "Uygulama güncel.");
   }, 2000);
 });
+=======
+// --- YENİ AYARLAR VE GÜNCELLEME KONTROLLERİ ---
+ipcMain.handle("get-settings", () => ({
+  winAutoStart: app.getLoginItemSettings().openAtLogin,
+  autoUpdate: store.get("settings.autoUpdate", true),
+}));
+// --- MEVCUT IPC HANDLERLARIN ALTINA EKLE ---
+
+ipcMain.on("reorder-apps", (event, newAppsList) => {
+  store.set("apps", newAppsList);
+  // Listeyi diğer pencerelere de (varsa) güncelle
+  event.sender.send("update-app-list", newAppsList);
+});
+
+ipcMain.on("set-win-autostart", (event, value) => {
+  app.setLoginItemSettings({ openAtLogin: value });
+});
+
+ipcMain.on("set-auto-update", (event, value) => {
+  store.set("settings.autoUpdate", value);
+  autoUpdater.autoDownload = value;
+});
+
+ipcMain.on("check-for-updates", () => {
+  autoUpdater.checkForUpdatesAndNotify();
+});
+
+>>>>>>> 1199f332e80a1404da257b04f522b76d573f1c8e

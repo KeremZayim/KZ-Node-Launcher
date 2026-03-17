@@ -611,6 +611,7 @@ input:checked + .slider:before {
   animation: spin 1s linear infinite;
 }
 
+<<<<<<< HEAD
 
 /* Script Item Styles */
 .script-item {
@@ -661,4 +662,19 @@ input:checked + .slider:before {
 
 .btn-select-script:hover {
   background: var(--accent-hover);
+=======
+/* --- SÜRÜKLEME EFEKTLERİ 
+.app-card {
+  cursor: grab;
+}
+--- */
+
+.app-card:active {
+  cursor: grabbing;
+}
+.app-card.dragging {
+  opacity: 0.5;
+  border: 2px dashed var(--accent);
+  transform: scale(0.95);
+>>>>>>> 1199f332e80a1404da257b04f522b76d573f1c8e
 }
