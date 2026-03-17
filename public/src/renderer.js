@@ -39,14 +39,24 @@ const memValue = document.getElementById("memValue");
 const openAutoStartManagerBtn = document.getElementById(
   "openAutoStartManagerBtn"
 );
+const openSettingsBtn = document.getElementById("openSettingsBtn");
 const autoStartModal = document.getElementById("autoStartModal");
 const autoStartListContainer = document.getElementById(
   "autoStartListContainer"
 );
+const settingsModal = document.getElementById("settingsModal");
+const settingStartMinimized = document.getElementById("settingStartMinimized");
+const winAutoStartToggle = document.getElementById("winAutoStartToggle");
 const closeAutoStartModalBtn = document.getElementById(
   "closeAutoStartModalBtn"
 );
 const closeAutoStartBtn = document.getElementById("closeAutoStartBtn");
+const closeSettingsModalBtn = document.getElementById("closeSettingsModalBtn");
+const closeSettingsBtn = document.getElementById("closeSettingsBtn");
+const manualCheckUpdateBtn = document.getElementById("manualCheckUpdateBtn");
+const currentVerText = document.getElementById("currentVerText");
+const updateStatusMsg = document.getElementById("updateStatusMsg");
+const autoUpdateToggle = document.getElementById("autoUpdateToggle");
 
 const filterDropdownBtn = document.getElementById("filterDropdownBtn");
 const filterDropdownMenu = document.getElementById("filterDropdownMenu");
@@ -75,6 +85,7 @@ let currentSelectedIcon = "🚀";
 let appLogs = {};
 let currentFilter = "all";
 let appToDeleteId = null;
+let updateDotsInterval = null;
 
 // 3.2 - Yükleme Ekranı (Loading Screen Logic)
 document.addEventListener("DOMContentLoaded", async () => {
@@ -145,8 +156,21 @@ async function loadAndRenderApps() {
 }
 
 const addBtn = document.getElementById("addBtn");
+const addChoiceModal = document.getElementById("addChoiceModal");
+const selectJsFileBtn = document.getElementById("selectJsFileBtn");
+const selectNpmScriptBtn = document.getElementById("selectNpmScriptBtn");
+const npmScriptModal = document.getElementById("npmScriptModal");
+const npmScriptsList = document.getElementById("npmScriptsList");
+
 if (addBtn) {
-  addBtn.addEventListener("click", async () => {
+  addBtn.addEventListener("click", () => {
+    if (addChoiceModal) addChoiceModal.style.display = "flex";
+  });
+}
+
+if (selectJsFileBtn) {
+  selectJsFileBtn.addEventListener("click", async () => {
+    addChoiceModal.style.display = "none";
     const filePath = await ipcRenderer.invoke("select-file");
     if (filePath) {
       const apps = await ipcRenderer.invoke("get-apps");
@@ -158,10 +182,68 @@ if (addBtn) {
         path: filePath,
         icon: "🚀",
         autoStart: false,
+        type: "js",
       };
       ipcRenderer.send("add-app", newApp);
     }
   });
+}
+
+if (selectNpmScriptBtn) {
+  selectNpmScriptBtn.addEventListener("click", async () => {
+    addChoiceModal.style.display = "none";
+    const folderPath = await ipcRenderer.invoke("select-folder");
+    if (folderPath) {
+      const scripts = await ipcRenderer.invoke("read-package-scripts", folderPath);
+      if (!scripts || Object.keys(scripts).length === 0) {
+        return showCustomAlert("package.json bulunamadı veya scripts boş!", "Hata");
+      }
+      showNpmScripts(folderPath, scripts);
+    }
+  });
+}
+
+function showNpmScripts(folderPath, scripts) {
+  if (!npmScriptsList) return;
+  npmScriptsList.innerHTML = "";
+  
+  Object.entries(scripts).forEach(([name, cmd]) => {
+    const item = document.createElement("div");
+    item.className = "script-item";
+    item.innerHTML = `
+      <div style="display:flex; flex-direction:column;">
+        <div class="script-name">${name}</div>
+        <div class="script-cmd" title="${cmd}">${cmd}</div>
+      </div>
+      <button class="btn-select-script">SEÇ</button>
+    `;
+    item.querySelector(".btn-select-script").addEventListener("click", () => {
+      addNpmApp(folderPath, name);
+      if (npmScriptModal) npmScriptModal.style.display = "none";
+    });
+    npmScriptsList.appendChild(item);
+  });
+  
+  if (npmScriptModal) npmScriptModal.style.display = "flex";
+}
+
+async function addNpmApp(folderPath, scriptName) {
+  const apps = await ipcRenderer.invoke("get-apps");
+  // Check if same folder and script already added
+  if (apps.some((app) => app.path === folderPath && app.script === scriptName)) {
+    return showCustomAlert("Bu script zaten ekli!", "Uyarı");
+  }
+
+  const newApp = {
+    id: Date.now(),
+    name: `${folderPath.replace(/^.*[\\\/]/, "")} (${scriptName})`,
+    path: folderPath,
+    icon: "📦",
+    autoStart: false,
+    type: "npm",
+    script: scriptName,
+  };
+  ipcRenderer.send("add-app", newApp);
 }
 
 ipcRenderer.on("update-app-list", (event, apps) => {
@@ -228,12 +310,25 @@ window.openEditModal = async (appId) => {
   if (selectedIconDisplay)
     selectedIconDisplay.innerText =
       currentSelectedIcon.length > 5 ? "Resim Dosyası" : currentSelectedIcon;
+  
+  // Highlight currently selected icon element
+  document.querySelectorAll(".preset-icon").forEach((el) => {
+    if (el.innerText === currentSelectedIcon) el.classList.add("selected");
+    else el.classList.remove("selected");
+  });
+
   if (editModal) editModal.style.display = "flex";
 };
 
 window.selectIcon = (icon) => {
   currentSelectedIcon = icon;
   if (selectedIconDisplay) selectedIconDisplay.innerText = icon;
+
+  // Visual feedback for selection
+  document.querySelectorAll(".preset-icon").forEach((el) => {
+    if (el.innerText === icon) el.classList.add("selected");
+    else el.classList.remove("selected");
+  });
 };
 
 const uploadImgBtn = document.getElementById("uploadImgBtn");
@@ -342,33 +437,93 @@ if (backBtn) {
 }
 
 // 3.7 - Otomatik Başlatma Yöneticisi Mantığı
+const openAutoStartModal = async () => {
+  const apps = await ipcRenderer.invoke("get-apps");
+  autoStartListContainer.innerHTML = "";
+  if (apps.length === 0) {
+    autoStartListContainer.innerHTML = `<div style="padding:15px; text-align:center; color:#666;">Hiç proje yok.</div>`;
+  } else {
+    apps.forEach((app) => {
+      const row = document.createElement("div");
+      row.style.cssText =
+        "display: flex; align-items: center; justify-content: space-between; padding: 10px; border-bottom: 1px solid #222;";
+      const isChecked = app.autoStart ? "checked" : "";
+      const iconShow = app.icon && app.icon.length < 5 ? app.icon : "🚀";
+      row.innerHTML = `
+                  <div style="display:flex; align-items:center; gap:10px;">
+                      <span style="font-size:18px;">${iconShow}</span>
+                      <span style="font-size:14px; font-weight:500;">${app.name}</span>
+                  </div>
+                  <label class="switch" style="display:flex; align-items:center;">
+                      <input type="checkbox" ${isChecked} onchange="toggleAutoStartFromList(${app.id}, this.checked)">
+                      <span class="slider" style="position:relative; width:34px; height:20px; display:inline-block; margin-right:0;"></span>
+                  </label>
+              `;
+      autoStartListContainer.appendChild(row);
+    });
+  }
+  if (autoStartModal) autoStartModal.style.display = "flex";
+};
+
+const openSystemSettings = async () => {
+  const settings = await ipcRenderer.invoke("get-settings");
+  if (settingStartMinimized) settingStartMinimized.checked = !!settings.startMinimized;
+  if (winAutoStartToggle) winAutoStartToggle.checked = !!settings.windowsStart;
+  if (autoUpdateToggle) autoUpdateToggle.checked = !!settings.autoUpdate;
+  if (settingsModal) settingsModal.style.display = "flex";
+};
+
 if (openAutoStartManagerBtn) {
-  openAutoStartManagerBtn.addEventListener("click", async () => {
-    const apps = await ipcRenderer.invoke("get-apps");
-    autoStartListContainer.innerHTML = "";
-    if (apps.length === 0) {
-      autoStartListContainer.innerHTML = `<div style="padding:15px; text-align:center; color:#666;">Hiç proje yok.</div>`;
-    } else {
-      apps.forEach((app) => {
-        const row = document.createElement("div");
-        row.style.cssText =
-          "display: flex; align-items: center; justify-content: space-between; padding: 10px; border-bottom: 1px solid #222;";
-        const isChecked = app.autoStart ? "checked" : "";
-        const iconShow = app.icon && app.icon.length < 5 ? app.icon : "🚀";
-        row.innerHTML = `
-                    <div style="display:flex; align-items:center; gap:10px;">
-                        <span style="font-size:18px;">${iconShow}</span>
-                        <span style="font-size:14px; font-weight:500;">${app.name}</span>
-                    </div>
-                    <label class="switch" style="display:flex; align-items:center;">
-                        <input type="checkbox" ${isChecked} onchange="toggleAutoStartFromList(${app.id}, this.checked)">
-                        <span class="slider" style="position:relative; width:34px; height:20px; display:inline-block; margin-right:0;"></span>
-                    </label>
-                `;
-        autoStartListContainer.appendChild(row);
-      });
-    }
-    if (autoStartModal) autoStartModal.style.display = "flex";
+  openAutoStartManagerBtn.addEventListener("click", openAutoStartModal);
+}
+
+if (openSettingsBtn) {
+  openSettingsBtn.addEventListener("click", openSystemSettings);
+}
+
+if (closeSettingsModalBtn) {
+  closeSettingsModalBtn.addEventListener("click", () => {
+    if (settingsModal) settingsModal.style.display = "none";
+  });
+}
+
+if (closeSettingsBtn) {
+  closeSettingsBtn.addEventListener("click", () => {
+    if (settingsModal) settingsModal.style.display = "none";
+  });
+}
+
+if (settingStartMinimized) {
+  settingStartMinimized.addEventListener("change", (e) => {
+    ipcRenderer.send("update-settings", { startMinimized: e.target.checked });
+  });
+}
+
+if (winAutoStartToggle) {
+  winAutoStartToggle.addEventListener("change", (e) => {
+    ipcRenderer.send("update-settings", { windowsStart: e.target.checked });
+  });
+}
+
+if (autoUpdateToggle) {
+  autoUpdateToggle.addEventListener("change", (e) => {
+    ipcRenderer.send("update-settings", { autoUpdate: e.target.checked });
+  });
+}
+
+if (manualCheckUpdateBtn) {
+  manualCheckUpdateBtn.addEventListener("click", () => {
+    if (updateDotsInterval) clearInterval(updateDotsInterval);
+    
+    let dots = 0;
+    if (updateStatusMsg) updateStatusMsg.innerText = "Denetleniyor";
+    
+    updateDotsInterval = setInterval(() => {
+      dots = (dots + 1) % 4;
+      if (updateStatusMsg) updateStatusMsg.innerText = "Denetleniyor" + ".".repeat(dots);
+    }, 500);
+    
+    ipcRenderer.send("check-for-updates");
   });
 }
 
@@ -438,6 +593,18 @@ ipcRenderer.on("app-status-change", async (event, { appId, isRunning }) => {
       if (statsContainer) statsContainer.style.display = "none";
     }
   }
+});
+
+ipcRenderer.on("version-info", (event, version) => {
+  if (currentVerText) currentVerText.innerText = "v" + version;
+});
+
+ipcRenderer.on("update-status", (event, msg) => {
+  if (updateDotsInterval) {
+    clearInterval(updateDotsInterval);
+    updateDotsInterval = null;
+  }
+  if (updateStatusMsg) updateStatusMsg.innerText = msg;
 });
 
 async function updateStatusUI(appId) {

@@ -178,6 +178,43 @@
       <div id="terminal-output"></div>
     </div>
 
+    <!-- Yeni Ekleme Seçenek Modal -->
+    <div id="addChoiceModal" class="modal-overlay">
+      <div class="modal-content" style="width: 350px; text-align: center">
+        <div class="modal-header">
+          <span>Proje Türü Seçin</span>
+          <span style="cursor: pointer" onclick="document.getElementById('addChoiceModal').style.display='none'">✕</span>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 15px; margin-top: 10px;">
+          <button id="selectJsFileBtn" class="add-btn" style="width: 100%; height: 50px; font-size: 14px;">
+            📄 .js Dosyası Seç
+          </button>
+          <button id="selectNpmScriptBtn" class="add-btn" style="width: 100%; height: 50px; font-size: 14px; background: #cb3837;">
+            📦 NPM Script Çalıştır
+          </button>
+        </div>
+        <div class="modal-footer" style="justify-content: center; margin-top: 20px;">
+          <button class="btn-cancel" onclick="document.getElementById('addChoiceModal').style.display='none'">İptal</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- NPM Script Seçim Modal -->
+    <div id="npmScriptModal" class="modal-overlay">
+      <div class="modal-content" style="width: 450px;">
+        <div class="modal-header">
+          <span>NPM Script Seçin</span>
+          <span style="cursor: pointer" onclick="document.getElementById('npmScriptModal').style.display='none'">✕</span>
+        </div>
+        <div id="npmScriptsList" class="scan-list-container" style="max-height: 350px;">
+          <!-- Scriptler buraya gelecek -->
+        </div>
+        <div class="modal-footer">
+          <button class="btn-cancel" onclick="document.getElementById('npmScriptModal').style.display='none'">Vazgeç</button>
+        </div>
+      </div>
+    </div>
+
     <div id="scanModal" class="modal-overlay">
       <div class="modal-content" style="width: 600px">
         <div class="modal-header">
@@ -215,6 +252,8 @@
           <button class="btn-save" id="closeAutoStartBtn">Tamam</button>
         </div>
       </div>
+    </div>
+
     </div>
     <div id="editModal" class="modal-overlay">
       <div class="modal-content">
@@ -272,12 +311,22 @@
         </div>
         <div class="form-group">
           <label class="form-label">İkon Seç</label>
-          <div class="icon-selector">
+          <div class="icon-selector" style="flex-wrap: wrap; height: auto;">
             <div class="preset-icon" onclick="selectIcon('🚀')">🚀</div>
             <div class="preset-icon" onclick="selectIcon('💻')">💻</div>
             <div class="preset-icon" onclick="selectIcon('🌐')">🌐</div>
             <div class="preset-icon" onclick="selectIcon('🎮')">🎮</div>
             <div class="preset-icon" onclick="selectIcon('🔥')">🔥</div>
+            <div class="preset-icon" onclick="selectIcon('🤖')">🤖</div>
+            <div class="preset-icon" onclick="selectIcon('⚡')">⚡</div>
+            <div class="preset-icon" onclick="selectIcon('🛠️')">🛠️</div>
+            <div class="preset-icon" onclick="selectIcon('📦')">📦</div>
+            <div class="preset-icon" onclick="selectIcon('🕸️')">🕸️</div>
+            <div class="preset-icon" onclick="selectIcon('🔌')">🔌</div>
+            <div class="preset-icon" onclick="selectIcon('💾')">💾</div>
+            <div class="preset-icon" onclick="selectIcon('🖥️')">🖥️</div>
+            <div class="preset-icon" onclick="selectIcon('📡')">📡</div>
+            <div class="preset-icon" onclick="selectIcon('🧪')">🧪</div>
             <button
               id="uploadImgBtn"
               style="
@@ -367,6 +416,13 @@
         />
       </svg>
     </a>
+
+    <button id="openSettingsBtn" title="Ayarlar" style=" position: fixed; bottom: 20px; left: 20px; background: transparent; border: none; color: #555; cursor: pointer; z-index: 100; transition: color 0.3s; " > <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" > <circle cx="12" cy="12" r="3"></circle> <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" ></path> </svg> </button>
+    <div id="settingsModal" class="modal-overlay"> <div class="modal-content" style="width: 400px"> <div class="modal-header"> <span>⚙️ Sistem Ayarları</span> <span style="cursor: pointer" id="closeSettingsModalBtn">✕</span> </div> <div class="settings-body" style="padding: 10px 0"> <div style=" display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; " > <div> <div style="font-size: 14px; color: #eee"> Windows Başlangıcında Çalıştır </div> <div style="font-size: 11px; color: #666"> Bilgisayar açıldığında otomatik açılır. </div> </div> <label class="switch" ><input type="checkbox" id="winAutoStartToggle" /><span class="slider" ></span ></label> </div> 
+
+    <div style=" display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; " > <div> <div style="font-size: 14px; color: #eee"> Küçültülmüş Olarak Başlat </div> <div style="font-size: 11px; color: #666"> Yalnızca sağ alt simgede (Tray) başlar. </div> </div> <label class="switch" ><input type="checkbox" id="settingStartMinimized" /><span class="slider" ></span ></label> </div>
+
+    <div style=" display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; " > <div> <div style="font-size: 14px; color: #eee"> Otomatik Güncelleme </div> <div style="font-size: 11px; color: #666"> Güncellemeleri arka planda denetler. </div> </div> <label class="switch" ><input type="checkbox" id="autoUpdateToggle" checked /><span class="slider" ></span ></label> </div> <div style=" border-top: 1px solid #333; padding-top: 15px; margin-top: 15px; " > <div style=" display: flex; justify-content: space-between; align-items: center; " > <span style="font-size: 12px; color: #888" >Mevcut Versiyon: <b id="currentVerText">1.0.1</b></span > <button id="manualCheckUpdateBtn" class="btn-save" style="font-size: 11px; padding: 5px 10px" > Güncellemeleri Denetle </button> </div> <div id="updateStatusMsg" style=" font-size: 11px; color: var(--success); margin-top: 8px; text-align: right; " ></div> </div> </div> <div class="modal-footer"> <button class="btn-cancel" id="closeSettingsBtn" style="width: 100%"> Kapat </button> </div> </div> </div>
 
     <script src="src/renderer.js"></script>
   </body>

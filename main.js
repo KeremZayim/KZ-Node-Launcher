@@ -99,7 +99,11 @@ function createTray() {
   ]);
 
   tray.setContextMenu(contextMenu);
-  tray.on("double-click", () => mainWindow.show());
+  tray.on("double-click", () => {
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.show();
+    mainWindow.focus();
+  });
 }
 
 // 1.4 - İşlem Sonlandırma (Stop Logic)
@@ -134,6 +138,13 @@ app.whenReady().then(() => {
   createWindow();
   createTray();
 
+  // Versiyon bilgisini gönder
+  setTimeout(() => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send("version-info", app.getVersion());
+    }
+  }, 2000);
+
   console.log(">> Otomatik baslatma kontrol ediliyor...");
   const savedApps = store.get("apps") || [];
 
@@ -146,6 +157,12 @@ app.whenReady().then(() => {
       }, 1500);
     }
   });
+
+  // Start Minimized Check
+  const settings = store.get("settings") || { startMinimized: false };
+  if (settings.startMinimized) {
+    mainWindow.hide();
+  }
 
   setInterval(() => {
     const activePids = [];
@@ -236,15 +253,32 @@ app.whenReady().then(() => {
 });
 
 // 1.6 - Node İşlemi Başlatma Fonksiyonu
-function startNodeProcess(appId, scriptPath, isAuto = false) {
+function startNodeProcess(appId, appPath, isAuto = false) {
   if (runningProcesses[appId]) return;
-  if (isAuto) console.log(`>> OTO-BASLATMA: ${path.basename(scriptPath)}`);
+  if (isAuto) console.log(`>> OTO-BASLATMA: ${path.basename(appPath)}`);
+
+  const apps = store.get("apps") || [];
+  const appInfo = apps.find(a => a.id === appId);
+  
+  let command, args, cwd;
+
+  if (appInfo && appInfo.type === "npm") {
+    // NPM Script handling
+    command = "npm";
+    args = ["run", appInfo.script];
+    cwd = appPath; // For npm, path is the folder
+  } else {
+    // Legacy / Direct JS handling
+    command = "node";
+    args = [path.basename(appPath)];
+    cwd = path.dirname(appPath);
+  }
 
   const child = spawn(
     "cmd.exe",
-    ["/c", "chcp 65001 > nul && node", `"${path.basename(scriptPath)}"`],
+    ["/c", `chcp 65001 > nul && ${command} ${args.join(" ")}`],
     {
-      cwd: path.dirname(scriptPath),
+      cwd: cwd,
       shell: true,
       env: { ...process.env, FORCE_COLOR: "true", LANG: "tr_TR.UTF-8" },
     }
@@ -272,11 +306,16 @@ function startNodeProcess(appId, scriptPath, isAuto = false) {
       });
   });
   child.on("close", (code) => {
-    if (mainWindow && !mainWindow.isDestroyed())
+    if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send("process-log", {
         appId: appId,
         log: `\n--- Kapanis (Kod: ${code}) ---`,
       });
+      mainWindow.webContents.send("app-status-change", {
+        appId: appId,
+        isRunning: false,
+      });
+    }
     delete runningProcesses[appId];
   });
 }
@@ -295,6 +334,28 @@ ipcMain.handle("select-file", async () => {
     filters: [{ name: "JavaScript", extensions: ["js"] }],
   });
   return result.filePaths[0];
+});
+
+ipcMain.handle("select-folder", async () => {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    properties: ["openDirectory"],
+  });
+  return result.filePaths[0];
+});
+
+ipcMain.handle("read-package-scripts", async (event, folderPath) => {
+  const fs = require("fs");
+  const packagePath = path.join(folderPath, "package.json");
+  if (fs.existsSync(packagePath)) {
+    try {
+      const packageData = JSON.parse(fs.readFileSync(packagePath, "utf8"));
+      return packageData.scripts || {};
+    } catch (err) {
+      console.error("package.json reading error:", err);
+      return null;
+    }
+  }
+  return null;
 });
 
 ipcMain.on("add-app", (event, appData) => {
@@ -368,6 +429,20 @@ ipcMain.on("delete-app", (event, appId) => {
   event.sender.send("update-app-list", newApps);
 });
 
+ipcMain.handle("get-settings", () => store.get("settings") || { startMinimized: false, windowsStart: false });
+ipcMain.on("update-settings", (event, newSettings) => {
+  const settings = store.get("settings") || {};
+  const updatedSettings = { ...settings, ...newSettings };
+  store.set("settings", updatedSettings);
+
+  if (newSettings.hasOwnProperty("windowsStart")) {
+    app.setLoginItemSettings({
+      openAtLogin: newSettings.windowsStart,
+      path: app.getPath("exe"),
+    });
+  }
+});
+
 // 1.8 - Ghost Process Tarama
 ipcMain.handle("scan-ghost-processes", async () => {
   const myPid = process.pid;
@@ -438,4 +513,11 @@ ipcMain.handle("scan-ghost-processes", async () => {
     }
   }
   return [...resultsMap.values()];
+});
+
+ipcMain.on("check-for-updates", (event) => {
+  // Simüle edilmiş güncelleme kontrolü
+  setTimeout(() => {
+    event.sender.send("update-status", "Uygulama güncel.");
+  }, 2000);
 });
