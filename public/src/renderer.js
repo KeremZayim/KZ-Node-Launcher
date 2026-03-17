@@ -138,13 +138,6 @@ async function loadAndRenderApps() {
   renderApps(apps);
 }
 const addBtn = document.getElementById("addBtn");
-<<<<<<< HEAD
-const addChoiceModal = document.getElementById("addChoiceModal");
-const selectJsFileBtn = document.getElementById("selectJsFileBtn");
-const selectNpmScriptBtn = document.getElementById("selectNpmScriptBtn");
-const npmScriptModal = document.getElementById("npmScriptModal");
-const npmScriptsList = document.getElementById("npmScriptsList");
-
 if (addBtn) {
   addBtn.addEventListener("click", () => {
     if (addChoiceModal) addChoiceModal.style.display = "flex";
@@ -153,11 +146,8 @@ if (addBtn) {
 
 if (selectJsFileBtn) {
   selectJsFileBtn.addEventListener("click", async () => {
-    addChoiceModal.style.display = "none";
-=======
-if (addBtn)
-  addBtn.addEventListener("click", async () => {
->>>>>>> 1199f332e80a1404da257b04f522b76d573f1c8e
+    if (addChoiceModal) addChoiceModal.style.display = "none";
+
     const filePath = await ipcRenderer.invoke("select-file");
     if (filePath) {
       const apps = await ipcRenderer.invoke("get-apps");
@@ -174,12 +164,12 @@ if (addBtn)
       ipcRenderer.send("add-app", newApp);
     }
   });
-<<<<<<< HEAD
 }
+
 
 if (selectNpmScriptBtn) {
   selectNpmScriptBtn.addEventListener("click", async () => {
-    addChoiceModal.style.display = "none";
+    if (addChoiceModal) addChoiceModal.style.display = "none";
     const folderPath = await ipcRenderer.invoke("select-folder");
     if (folderPath) {
       const scripts = await ipcRenderer.invoke("read-package-scripts", folderPath);
@@ -234,8 +224,6 @@ async function addNpmApp(folderPath, scriptName) {
   ipcRenderer.send("add-app", newApp);
 }
 
-=======
->>>>>>> 1199f332e80a1404da257b04f522b76d573f1c8e
 ipcRenderer.on("update-app-list", (event, apps) => {
   renderApps(apps);
   if (editModal) editModal.style.display = "none";
@@ -506,8 +494,8 @@ if (backBtn)
     loadAndRenderApps(); // Listeyi yenile
   });
 
-<<<<<<< HEAD
 // 3.7 - Otomatik Başlatma Yöneticisi Mantığı
+
 const openAutoStartModal = async () => {
   const apps = await ipcRenderer.invoke("get-apps");
   autoStartListContainer.innerHTML = "";
@@ -536,87 +524,13 @@ const openAutoStartModal = async () => {
   if (autoStartModal) autoStartModal.style.display = "flex";
 };
 
-const openSystemSettings = async () => {
-  const settings = await ipcRenderer.invoke("get-settings");
-  if (settingStartMinimized) settingStartMinimized.checked = !!settings.startMinimized;
-  if (winAutoStartToggle) winAutoStartToggle.checked = !!settings.windowsStart;
-  if (autoUpdateToggle) autoUpdateToggle.checked = !!settings.autoUpdate;
-  if (settingsModal) settingsModal.style.display = "flex";
-};
-
 if (openAutoStartManagerBtn) {
   openAutoStartManagerBtn.addEventListener("click", openAutoStartModal);
 }
 
-if (openSettingsBtn) {
-  openSettingsBtn.addEventListener("click", openSystemSettings);
-}
-
-if (closeSettingsModalBtn) {
-  closeSettingsModalBtn.addEventListener("click", () => {
-    if (settingsModal) settingsModal.style.display = "none";
-  });
-}
-
-if (closeSettingsBtn) {
-  closeSettingsBtn.addEventListener("click", () => {
-    if (settingsModal) settingsModal.style.display = "none";
-  });
-}
-
-if (settingStartMinimized) {
-  settingStartMinimized.addEventListener("change", (e) => {
-    ipcRenderer.send("update-settings", { startMinimized: e.target.checked });
-  });
-}
-
-if (winAutoStartToggle) {
-  winAutoStartToggle.addEventListener("change", (e) => {
-    ipcRenderer.send("update-settings", { windowsStart: e.target.checked });
-  });
-}
-
-if (autoUpdateToggle) {
-  autoUpdateToggle.addEventListener("change", (e) => {
-    ipcRenderer.send("update-settings", { autoUpdate: e.target.checked });
-  });
-}
-
-if (manualCheckUpdateBtn) {
-  manualCheckUpdateBtn.addEventListener("click", () => {
-    if (updateDotsInterval) clearInterval(updateDotsInterval);
-    
-    let dots = 0;
-    if (updateStatusMsg) updateStatusMsg.innerText = "Denetleniyor";
-    
-    updateDotsInterval = setInterval(() => {
-      dots = (dots + 1) % 4;
-      if (updateStatusMsg) updateStatusMsg.innerText = "Denetleniyor" + ".".repeat(dots);
-    }, 500);
-    
-    ipcRenderer.send("check-for-updates");
-=======
-if (openAutoStartManagerBtn)
-  openAutoStartManagerBtn.addEventListener("click", async () => {
-    const apps = await ipcRenderer.invoke("get-apps");
-    autoStartListContainer.innerHTML = "";
-    if (apps.length === 0) {
-      autoStartListContainer.innerHTML = `<div style="padding:15px; text-align:center; color:#666;">Hiç proje yok.</div>`;
-    } else {
-      apps.forEach((app) => {
-        const row = document.createElement("div");
-        row.style.cssText =
-          "display: flex; align-items: center; justify-content: space-between; padding: 10px; border-bottom: 1px solid #222;";
-        const isChecked = app.autoStart ? "checked" : "";
-        const iconShow = app.icon && app.icon.length < 5 ? app.icon : "🚀";
-        row.innerHTML = `<div style="display:flex; align-items:center; gap:10px;"><span style="font-size:18px;">${iconShow}</span><span style="font-size:14px; font-weight:500;">${app.name}</span></div><label class="switch" style="display:flex; align-items:center;"><input type="checkbox" ${isChecked} onchange="toggleAutoStartFromList(${app.id}, this.checked)"><span class="slider" style="position:relative; width:34px; height:20px; display:inline-block; margin-right:0;"></span></label>`;
-        autoStartListContainer.appendChild(row);
-      });
-    }
-    if (autoStartModal) autoStartModal.style.display = "flex";
->>>>>>> 1199f332e80a1404da257b04f522b76d573f1c8e
-  });
 window.toggleAutoStartFromList = (appId, isEnabled) => {
+
+
   ipcRenderer.send("update-auto-start", { appId, enabled: isEnabled });
 };
 if (closeAutoStartModalBtn)
@@ -677,22 +591,14 @@ ipcRenderer.on("app-status-change", async (event, { appId, isRunning }) => {
     }
   }
 });
-<<<<<<< HEAD
-
 ipcRenderer.on("version-info", (event, version) => {
   if (currentVerText) currentVerText.innerText = "v" + version;
 });
 
 ipcRenderer.on("update-status", (event, msg) => {
-  if (updateDotsInterval) {
-    clearInterval(updateDotsInterval);
-    updateDotsInterval = null;
-  }
   if (updateStatusMsg) updateStatusMsg.innerText = msg;
 });
 
-=======
->>>>>>> 1199f332e80a1404da257b04f522b76d573f1c8e
 async function updateStatusUI(appId) {
   const isRunning = await ipcRenderer.invoke("get-process-status", appId);
   if (isRunning) {
@@ -794,49 +700,48 @@ if (closeScanBtn)
   });
 // renderer.js sonuna ekle
 
-const openSettingsBtn = document.getElementById("openSettingsBtn");
-const settingsModal = document.getElementById("settingsModal");
-const closeSettingsModalBtn = document.getElementById("closeSettingsModalBtn");
-const closeSettingsBtn = document.getElementById("closeSettingsBtn");
-const winAutoStartToggle = document.getElementById("winAutoStartToggle");
-const autoUpdateToggle = document.getElementById("autoUpdateToggle");
-const manualCheckUpdateBtn = document.getElementById("manualCheckUpdateBtn");
-const currentVerText = document.getElementById("currentVerText");
-const updateStatusMsg = document.getElementById("updateStatusMsg");
+// Settings handling moved from bottom to central logic area
+const hideSettings = () => {
+  if (settingsModal) settingsModal.style.display = "none";
+};
 
 if (openSettingsBtn) {
   openSettingsBtn.addEventListener("click", async () => {
     const settings = await ipcRenderer.invoke("get-settings");
-    winAutoStartToggle.checked = settings.winAutoStart;
-    autoUpdateToggle.checked = settings.autoUpdate;
-    settingsModal.style.display = "flex";
+    if (settingStartMinimized) settingStartMinimized.checked = !!settings.startMinimized;
+    if (winAutoStartToggle) winAutoStartToggle.checked = !!settings.winAutoStart;
+    if (autoUpdateToggle) autoUpdateToggle.checked = !!settings.autoUpdate;
+    if (settingsModal) settingsModal.style.display = "flex";
   });
 }
 
-const hideSettings = () => settingsModal.style.display = "none";
 if (closeSettingsModalBtn) closeSettingsModalBtn.addEventListener("click", hideSettings);
 if (closeSettingsBtn) closeSettingsBtn.addEventListener("click", hideSettings);
 
-winAutoStartToggle.addEventListener("change", (e) => {
-  ipcRenderer.send("set-win-autostart", e.target.checked);
-});
+if (settingStartMinimized) {
+  settingStartMinimized.addEventListener("change", (e) => {
+    ipcRenderer.send("update-settings", { startMinimized: e.target.checked });
+  });
+}
 
-autoUpdateToggle.addEventListener("change", (e) => {
-  ipcRenderer.send("set-auto-update", e.target.checked);
-});
+if (winAutoStartToggle) {
+  winAutoStartToggle.addEventListener("change", (e) => {
+    ipcRenderer.send("update-settings", { windowsStart: e.target.checked });
+  });
+}
 
-manualCheckUpdateBtn.addEventListener("click", () => {
-  updateStatusMsg.innerText = "Denetleniyor...";
-  ipcRenderer.send("check-for-updates");
-});
+if (autoUpdateToggle) {
+  autoUpdateToggle.addEventListener("change", (e) => {
+    ipcRenderer.send("update-settings", { autoUpdate: e.target.checked });
+  });
+}
 
-ipcRenderer.on("version-info", (event, version) => {
-  currentVerText.innerText = "v" + version;
-});
-
-ipcRenderer.on("update-status", (event, msg) => {
-  updateStatusMsg.innerText = msg;
-});
+if (manualCheckUpdateBtn) {
+  manualCheckUpdateBtn.addEventListener("click", () => {
+    if (updateStatusMsg) updateStatusMsg.innerText = "Denetleniyor...";
+    ipcRenderer.send("check-for-updates");
+  });
+}
 
 const whatsNewModal = document.getElementById("whatsNewModal");
 const whatsNewContent = document.getElementById("whatsNewContent");

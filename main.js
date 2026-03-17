@@ -108,21 +108,12 @@ function createWindow() {
     }, 5000);
   });
 
-<<<<<<< HEAD
-  tray.setContextMenu(contextMenu);
-  tray.on("double-click", () => {
-    if (mainWindow.isMinimized()) mainWindow.restore();
-    mainWindow.show();
-    mainWindow.focus();
-  });
-}
-=======
   autoUpdater.on("error", (err) => {
     // Hatanın detayını frontend'e gönder
     mainWindow.webContents.send("update-status", "Hata: " + err.message);
     console.error("GÜNCELLEME DETAYLI HATA:", err);
   });
->>>>>>> 1199f332e80a1404da257b04f522b76d573f1c8e
+
 
   // Güncelleme bulunamadığında "Denetleniyor" yazısında takılmaması için:
   autoUpdater.on("update-not-available", () => {
@@ -275,37 +266,34 @@ function updateUI(appId, isRunning) {
   }
 }
 
+function stopProcessLogic(appId) {
+  const proc = runningProcesses[appId];
+  if (proc) {
+    if (process.platform === "win32" && proc.pid) {
+      exec(`taskkill /pid ${proc.pid} /T /F`);
+    } else if (proc.kill) {
+      proc.kill();
+    }
+    delete runningProcesses[appId];
+    updateUI(appId, false);
+  }
+}
+
+function stopAllProcesses() {
+  Object.keys(runningProcesses).forEach((id) => stopProcessLogic(id));
+}
+
+
 app.whenReady().then(() => {
   createWindow();
   createTray();
   setInterval(runWatchdog, 3000);
 
-<<<<<<< HEAD
-  // Versiyon bilgisini gönder
-  setTimeout(() => {
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send("version-info", app.getVersion());
-    }
-  }, 2000);
-
-  console.log(">> Otomatik baslatma kontrol ediliyor...");
-  const savedApps = store.get("apps") || [];
-
-  savedApps.forEach((app) => {
-    if (app.autoStart) {
-      setTimeout(() => {
-        if (!runningProcesses[app.id]) {
-          startNodeProcess(app.id, app.path, true);
-        }
-      }, 1500);
-    }
-  });
-=======
   // EKLENEN: Ayar açıksa güncellemeleri denetle
   if (store.get("settings.autoUpdate", true)) {
     autoUpdater.checkForUpdatesAndNotify();
   }
->>>>>>> 1199f332e80a1404da257b04f522b76d573f1c8e
+
 
   // Start Minimized Check
   const settings = store.get("settings") || { startMinimized: false };
@@ -325,7 +313,6 @@ app.whenReady().then(() => {
   }, 2000);
 });
 
-<<<<<<< HEAD
 // 1.6 - Node İşlemi Başlatma Fonksiyonu
 function startNodeProcess(appId, appPath, isAuto = false) {
   if (runningProcesses[appId]) return;
@@ -357,29 +344,7 @@ function startNodeProcess(appId, appPath, isAuto = false) {
       env: { ...process.env, FORCE_COLOR: "true", LANG: "tr_TR.UTF-8" },
     }
   );
-=======
-function stopProcessLogic(appId) {
-  const proc = runningProcesses[appId];
-  if (proc) {
-    if (process.platform === "win32" && proc.pid) {
-      exec(`taskkill /pid ${proc.pid} /T /F`);
-    } else if (proc.kill) {
-      proc.kill();
-    }
-    delete runningProcesses[appId];
-    updateUI(appId, false);
-  }
-}
 
-function startNodeProcess(appId, scriptPath, isAuto = false) {
-  if (runningProcesses[appId]) return;
-
-  const child = spawn("node", [`"${scriptPath}"`], {
-    cwd: path.dirname(scriptPath),
-    shell: true,
-    env: { ...process.env, FORCE_COLOR: "true" },
-  });
->>>>>>> 1199f332e80a1404da257b04f522b76d573f1c8e
 
   // START_TIME ve LAST_SEEN ekleyerek Watchdog'a "bu sürece 10 saniye dokunma" diyoruz
   runningProcesses[appId] = {
@@ -410,19 +375,7 @@ function startNodeProcess(appId, scriptPath, isAuto = false) {
   });
 
   child.on("close", (code) => {
-<<<<<<< HEAD
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send("process-log", {
-        appId: appId,
-        log: `\n--- Kapanis (Kod: ${code}) ---`,
-      });
-      mainWindow.webContents.send("app-status-change", {
-        appId: appId,
-        isRunning: false,
-      });
-    }
-    delete runningProcesses[appId];
-=======
+  child.on("close", (code) => {
     if (runningProcesses[appId] && runningProcesses[appId].pid === child.pid) {
       delete runningProcesses[appId];
       updateUI(appId, false);
@@ -432,7 +385,8 @@ function startNodeProcess(appId, scriptPath, isAuto = false) {
           log: `\n--- Kapanis (Kod: ${code}) ---`,
         });
     }
->>>>>>> 1199f332e80a1404da257b04f522b76d573f1c8e
+  });
+
   });
 }
 
@@ -450,8 +404,6 @@ ipcMain.handle("select-file", async () => {
   });
   return result.filePaths[0];
 });
-<<<<<<< HEAD
-
 ipcMain.handle("select-folder", async () => {
   const result = await dialog.showOpenDialog(mainWindow, {
     properties: ["openDirectory"],
@@ -474,8 +426,6 @@ ipcMain.handle("read-package-scripts", async (event, folderPath) => {
   return null;
 });
 
-=======
->>>>>>> 1199f332e80a1404da257b04f522b76d573f1c8e
 ipcMain.on("add-app", (event, appData) => {
   const apps = store.get("apps") || [];
   apps.push(appData);
@@ -519,9 +469,14 @@ ipcMain.on("delete-app", (event, appId) => {
   store.set("apps", newApps);
   event.sender.send("update-app-list", newApps);
 });
-<<<<<<< HEAD
+ipcMain.handle("get-settings", () => {
+  const settings = store.get("settings") || { startMinimized: false, windowsStart: false, autoUpdate: true };
+  return {
+    ...settings,
+    winAutoStart: app.getLoginItemSettings().openAtLogin,
+  };
+});
 
-ipcMain.handle("get-settings", () => store.get("settings") || { startMinimized: false, windowsStart: false });
 ipcMain.on("update-settings", (event, newSettings) => {
   const settings = store.get("settings") || {};
   const updatedSettings = { ...settings, ...newSettings };
@@ -535,21 +490,6 @@ ipcMain.on("update-settings", (event, newSettings) => {
   }
 });
 
-// 1.8 - Ghost Process Tarama
-=======
-ipcMain.handle("select-image", async () => {
-  const result = await dialog.showOpenDialog(mainWindow, {
-    properties: ["openFile"],
-    filters: [
-      { name: "Görseller", extensions: ["png", "jpg", "jpeg", "ico", "svg"] },
-    ],
-  });
-  return result.canceled ? null : result.filePaths[0];
-});
-function stopAllProcesses() {
-  Object.keys(runningProcesses).forEach((id) => stopProcessLogic(id));
-}
->>>>>>> 1199f332e80a1404da257b04f522b76d573f1c8e
 ipcMain.handle("scan-ghost-processes", async () => {
   const myPid = process.pid;
   const resultsMap = new Map();
@@ -679,38 +619,22 @@ ipcMain.handle("scan-ghost-processes", async () => {
   return [...resultsMap.values()];
 });
 
-<<<<<<< HEAD
-ipcMain.on("check-for-updates", (event) => {
-  // Simüle edilmiş güncelleme kontrolü
-  setTimeout(() => {
-    event.sender.send("update-status", "Uygulama güncel.");
-  }, 2000);
+ipcMain.handle("select-image", async () => {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    properties: ["openFile"],
+    filters: [
+      { name: "Görseller", extensions: ["png", "jpg", "jpeg", "ico", "svg"] },
+    ],
+  });
+  return result.canceled ? null : result.filePaths[0];
 });
-=======
-// --- YENİ AYARLAR VE GÜNCELLEME KONTROLLERİ ---
-ipcMain.handle("get-settings", () => ({
-  winAutoStart: app.getLoginItemSettings().openAtLogin,
-  autoUpdate: store.get("settings.autoUpdate", true),
-}));
-// --- MEVCUT IPC HANDLERLARIN ALTINA EKLE ---
 
 ipcMain.on("reorder-apps", (event, newAppsList) => {
   store.set("apps", newAppsList);
-  // Listeyi diğer pencerelere de (varsa) güncelle
   event.sender.send("update-app-list", newAppsList);
-});
-
-ipcMain.on("set-win-autostart", (event, value) => {
-  app.setLoginItemSettings({ openAtLogin: value });
-});
-
-ipcMain.on("set-auto-update", (event, value) => {
-  store.set("settings.autoUpdate", value);
-  autoUpdater.autoDownload = value;
 });
 
 ipcMain.on("check-for-updates", () => {
   autoUpdater.checkForUpdatesAndNotify();
 });
 
->>>>>>> 1199f332e80a1404da257b04f522b76d573f1c8e
