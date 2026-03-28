@@ -663,24 +663,39 @@ function showScanResults(ghosts) {
     ghosts.forEach((ghost) => {
       const item = document.createElement("div");
       item.className = "scan-item";
-      item.innerHTML = `<div class="scan-info"><div class="scan-name">👻 ${ghost.path.replace(
-        /^.*[\\\/]/,
-        ""
-      )}</div><div class="scan-path" title="${ghost.path}">${
-        ghost.path
-      }</div><div class="scan-meta"><span>PID: ${ghost.pid}</span><span>PORT: ${
-        ghost.port
-      }</span></div></div><button class="btn-add-ghost">EKLE</button>`;
+      item.innerHTML = `
+        <div class="scan-info">
+          <div class="scan-name">👻 ${ghost.path.replace(/^.*[\\\/]/, "")}</div>
+          <div class="scan-path" title="${ghost.path}">${ghost.path}</div>
+          <div class="scan-meta">
+            <span>PID: ${ghost.pid}</span>
+            <span>PORT: ${ghost.port}</span>
+          </div>
+        </div>
+        <div style="display:flex; gap:8px;">
+          <button class="btn-add-ghost" style="background:var(--primary); color:white; border:none; padding:8px 15px; border-radius:5px; cursor:pointer; font-weight:bold; font-size:12px;">EKLE</button>
+          <button class="btn-kill-ghost" style="background:#ef4444; color:white; border:none; padding:8px 15px; border-radius:5px; cursor:pointer; font-weight:bold; font-size:12px;">DURDUR</button>
+        </div>`;
+      
       item.querySelector(".btn-add-ghost").addEventListener("click", (e) => {
         addGhostApp(ghost);
         e.target.innerText = "EKLENDİ";
         e.target.disabled = true;
+        e.target.style.background = "#555";
+      });
+
+      item.querySelector(".btn-kill-ghost").addEventListener("click", (e) => {
+        ipcRenderer.send("kill-ghost-process", ghost.pid);
+        e.target.innerText = "DURDURULDU";
+        e.target.disabled = true;
+        e.target.style.background = "#555";
       });
       scanResultsList.appendChild(item);
     });
   }
   if (scanModal) scanModal.style.display = "flex";
 }
+
 function addGhostApp(g) {
   ipcRenderer.send("add-app", {
     id: Date.now(),

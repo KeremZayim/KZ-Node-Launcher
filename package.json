@@ -1,6 +1,6 @@
 {
   "name": "node-launcher",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Kerem Zayim tarafından geliştirilen, Node.js projelerini kolayca yönetip başlatmanızı sağlayan Node Launcher uygulaması.",
   "main": "main.js",
   "scripts": {

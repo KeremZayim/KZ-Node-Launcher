@@ -1,95 +1,87 @@
-# 🚀 Node Launcher
+# 🚀 KZ Node Launcher
 
-![Version](https://img.shields.io/badge/version-1.0.0-blue.svg) ![Electron](https://img.shields.io/badge/Electron-24.0.0+-green.svg) ![License](https://img.shields.io/badge/license-MIT-orange.svg) ![Author](https://img.shields.io/badge/Author-Kerem%20Zayim-red)
+![Version](https://img.shields.io/badge/version-1.0.3-blue.svg) ![Electron](https://img.shields.io/badge/Electron-39.2.7-green.svg) ![License](https://img.shields.io/badge/license-ISC-orange.svg) ![Author](https://img.shields.io/badge/Author-Kerem%20Zayim-red)
 
-**Node Launcher**, geliştiricilerin birden fazla Node.js projesini (botlar, sunucular, API'ler) tek bir merkezi panelden yönetmesini, izlemesini ve otomatik başlatmasını sağlayan güçlü bir masaüstü uygulamasıdır.
+**KZ Node Launcher**, Node.js projelerinizi (botlar, sunucular, API'ler) tek bir merkezden yönetmenizi, izlemenizi ve otomatikleştirmenizi sağlayan, geliştirici dostu bir masaüstü uygulamasıdır. 
 
-<img width="1097" height="747" alt="Screenshot_1277" src="https://github.com/user-attachments/assets/57a6204c-48ab-489f-86e8-b32f9b8b2eb7" />
+Modern arayüzü ve güçlü arka plan yönetimi ile projelerinizi terminal karmaşasından kurtarıp kontrolü size verir.
 
----
-
-## 🌟 Özellikler
-
-* **📂 Proje Yönetimi:** İstediğiniz kadar Node.js projesini dosya gezgini ile kolayca ekleyin.
-* **⚡ Otomatik Başlatma:** Bilgisayar açıldığında veya program başladığında seçtiğiniz projeleri otomatik çalıştırır.
-* **📊 Kaynak Takibi:** Her projenin **CPU** ve **RAM** kullanımını anlık olarak izleyin.
-* **👻 Dış Kaynak Tespiti:** Terminalden veya dışarıdan manuel başlattığınız projeleri otomatik algılar ve panele entegre eder.
-* **🛠️ Kolay Kontrol:** Başlat, Durdur, Düzenle ve Sil işlemleri tek tıkla.
-* **📥 Arka Plan Modu:** Sistem tepsisine (Tray) küçülerek arka planda çalışmaya devam eder.
-* **🎨 Modern Arayüz:** Göz yormayan, şık Dark Mode tasarımı.
+<img width="1097" height="747" alt="Node Launcher Dashboard" src="https://github.com/user-attachments/assets/57a6204c-48ab-489f-86e8-b32f9b8b2eb7" />
 
 ---
 
-## 📂 Proje Yapısı
+## ✨ Temel Özellikler
 
-Proje dosyaları, bakımın kolay olması için modüler bir yapıda düzenlenmiştir:
+*   **📂 Akıllı Proje Yönetimi:** .js dosyalarını doğrudan ekleyebilir veya `package.json` üzerinden **NPM scriptlerini** (dev, start vb.) otomatik içe aktarabilirsiniz.
+*   **🖱️ Gelişmiş Sürükle-Bırak:** Proje kartlarınızı ana ekranda sürükleyip bırakarak dilediğiniz gibi sıralayın.
+*   **📊 Anlık Kaynak Takibi:** Her projenin kullandığı **CPU** ve **RAM** miktarını gerçek zamanlı grafiklerle izleyin.
+*   **👻 Hayalet İşlem Tespiti:** Uygulama dışından (terminal vb.) başlattığınız projeleri otomatik tespit eder ve panele entegre eder.
+*   **⚡ Otomatik Başlatma:** Bilgisayar açıldığında veya uygulama başladığında kritik projelerinizin otomatik çalışmasını sağlayın.
+*   **🛠️ Entegre Konsol:** Her projenin loglarını renkli ve temiz bir terminal arayüzünde takip edin.
+*   **📥 Sistem Tepsisi (Tray):** Uygulamayı kapatsanız bile arka planda çalışmaya devam eder, tray simgesinden hızlıca yönetebilirsiniz.
+*   **🎨 Modern Dark UI:** Göz yormayan, premium animasyonlarla desteklenen şık karanlık tema.
+*   **🔄 Otomatik Güncelleme:** GitHub üzerinden yeni sürümleri otomatik denetler ve "Neler Yeni?" bilgilendirmesi sunar.
+
+---
+
+## 🏗️ Proje Yapısı
 
 ```text
 Node-Launcher/
 ├── main.js                  # Backend (Electron Ana Süreci)
-├── package.json             # Bağımlılıklar ve Ayarlar
-├── dist/                    # Derlenmiş .exe dosyaları (Build sonrası)
+├── package.json             # Bağımlılıklar ve Uygulama Ayarları
+├── changelog.md             # Sürüm Geçmişi ve Güncelleme Notları
 └── public/
-    ├── index.html           # Arayüz (HTML Yapısı)
-    ├── images/
-    │   └── icon.png         # Uygulama Logosu
+    ├── index.html           # Arayüz Yapısı
     └── src/
         ├── renderer.js      # Frontend Mantığı (UI Etkileşimleri)
-        └── styles.css       # Tasarım ve Stiller
+        └── styles.css       # Tasarım ve CSS Animasyonları
 ```
+
 ---
 
-## 🚀 Kurulum ve Çalıştırma
+## 🚀 Kurulum ve Geliştirme
 
-Bu projeyi bilgisayarınızda geliştirmek veya çalıştırmak için şu adımları izleyin:
+Projeyi yerel ortamınızda çalıştırmak için:
 
-1. Projeyi Klonlayın
-```bash
-git clone https://github.com/KeremZayim/node-launcher.git
-cd node-launcher
-```
-2. Bağımlılıkları Yükleyin
-```bash
-npm install
-```
-3. Uygulamayı Başlatın (Geliştirici Modu)
-```bash
-npm start
-```
-4. Windows İçin Kurulum Dosyası (.exe) Oluşturun
-
-```bash
-npm run dist
-```
-*Bu işlem `dist` klasörü içine `Node Launcher Setup.exe` dosyasını oluşturacaktır.*
+1.  **Depoyu Klonlayın:**
+    ```bash
+    git clone https://github.com/KeremZayim/KZ-Process-Manager.git
+    cd KZ-Process-Manager
+    ```
+2.  **Bağımlılıkları Yükleyin:**
+    ```bash
+    npm install
+    ```
+3.  **Geliştirici Modunda Başlatın:**
+    ```bash
+    npm start
+    ```
+4.  **Kurulum Dosyası (.exe) Oluşturun:**
+    ```bash
+    npm run dist
+    ```
 
 ---
 
 ## 🛠️ Kullanılan Teknolojiler
 
-* **Electron:** Masaüstü uygulama çatısı.
-
-* **Node.js:** Arka plan işlemleri.
-
-* **HTML5 / CSS3:** Arayüz tasarımı.
-
-* **Libraries:** pidusage (CPU/RAM takibi), systeminformation, electron-store (Veri kaydı).
+*   **Electron:** Güçlü masaüstü uygulama altyapısı.
+*   **Node.js:** Verimli süreç yönetimi.
+*   **PID Usage & Systeminfo:** Doğru kaynak kullanımı verileri.
+*   **Electron Store & Updater:** Kalıcı ayarlar ve sorunsuz güncellemeler.
 
 ---
-## 🤝 Destek ve İletişim
 
-Herhangi bir sorunla karşılaşırsanız veya öneriniz varsa, GitHub üzerinden Issue açmaktan çekinmeyin.
+## 🤝 İletişim ve Destek
 
-* **👤 Geliştirici:** Kerem Zayim
+Önerileriniz veya karşılaştığınız hatalar için GitHub üzerinden **Issue** açabilirsiniz.
 
-* **🌐 GitHub:** github.com/KeremZayim
+*   **Geliştirici:** [Kerem Zayim](https://github.com/KeremZayim)
+*   **Proje Sayfası:** [KZ-Process-Manager](https://github.com/KeremZayim/KZ-Process-Manager)
 
-Eğer bu projeyi beğendiyseniz, sağ üst köşeden bir **Yıldız (⭐)** bırakmayı unutmayın!
-
-## ❤️ Teşekkürler
-
-Bu projeyi geliştirirken ilham veren açık kaynak topluluğuna ve Node.js ekosistemine teşekkürler. Kullanıcı deneyimini en üst düzeye çıkarmak için geri bildirimleriniz benim için çok değerli.
+Eğer bu proje işinize yarıyorsa bir **Yıldız (⭐)** bırakarak destek olabilirsiniz!
 
 --- 
 
-Lisans: MIT License
+**Lisans:** ISC License

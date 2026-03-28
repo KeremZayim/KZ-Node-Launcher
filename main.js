@@ -140,6 +140,14 @@ function createTray() {
     path.join(__dirname, "public/images/icon.png")
   );
   tray = new Tray(icon);
+  tray.on("double-click", () => {
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      if (!mainWindow.isVisible()) mainWindow.show();
+      mainWindow.focus();
+    }
+  });
+
   tray.setContextMenu(
     Menu.buildFromTemplate([
       { label: "Paneli Goster", click: () => mainWindow.show() },
@@ -147,7 +155,19 @@ function createTray() {
       { type: "separator" },
       {
         label: "Cikis",
-        click: () => {
+        click: async () => {
+          const activeCount = Object.keys(runningProcesses).length;
+          if (activeCount > 0) {
+            const { response } = await dialog.showMessageBox(mainWindow, {
+              type: "warning",
+              title: "Açık Projeler Var!",
+              message: "Arka planda hala çalışmakta olan " + activeCount + " projeniz var.\n\nEğer Node Launcher'ı tamamen kapatırsanız bu projeler kontrol dışı kalabilir ve yeniden açtığınızda otomatik eşleşemeyebilirler.\n\nYine de kapatmak istiyor musunuz?",
+              buttons: ["İptal", "Kapat"],
+              defaultId: 0,
+              cancelId: 0
+            });
+            if (response === 0) return;
+          }
           isQuitting = true;
           app.quit();
         },
@@ -185,7 +205,7 @@ function runWatchdog() {
 
     if (err || !stdout) return;
 
-    const lines = stdout.split("\r\n");
+    const lines = stdout.trim().split(/[\r\n]+/);
     const systemProcesses = [];
 
     lines.forEach((line) => {
@@ -232,12 +252,18 @@ function runWatchdog() {
           updateUI(app.id, true);
         } else {
           // Zaten vardı, bilgilerini güncelle
-          existing.pid = foundInSystem.pid;
+          existing.nodePid = foundInSystem.pid;
           existing.lastSeen = now;
         }
       } else {
         // --- DURUM B: SÜREÇ SİSTEMDE GÖRÜNMEDİ ---
         if (existing) {
+          if (!existing.external) {
+            // Eger bizim tarafimizdan baslatildiysa wmic taramasina guvenmeyip
+            // kapanip kapanmadigina child.on('close') ile karar veriyoruz!
+            return;
+          }
+
           // Eğer süreç yeni başlatıldıysa (ilk 10 saniye) veya
           // geçici bir tarama hatasıysa hemen kapatma (5 saniye bekle)
           const age = now - (existing.startTime || 0);
@@ -303,7 +329,7 @@ app.whenReady().then(() => {
 
   setInterval(() => {
     const activePids = Object.values(runningProcesses)
-      .map((p) => p.pid)
+      .map((p) => p.nodePid || p.pid)
       .filter(Boolean);
     if (activePids.length > 0 && mainWindow && !mainWindow.isDestroyed()) {
       pidusage(activePids, (err, stats) => {
@@ -326,12 +352,12 @@ function startNodeProcess(appId, appPath, isAuto = false) {
   if (appInfo && appInfo.type === "npm") {
     // NPM Script handling
     command = "npm";
-    args = ["run", appInfo.script];
+    args = ["--prefix", `"${appPath}"`, "run", appInfo.script];
     cwd = appPath; // For npm, path is the folder
   } else {
     // Legacy / Direct JS handling
     command = "node";
-    args = [path.basename(appPath)];
+    args = [`"${appPath}"`];
     cwd = path.dirname(appPath);
   }
 
@@ -375,8 +401,8 @@ function startNodeProcess(appId, appPath, isAuto = false) {
   });
 
   child.on("close", (code) => {
-  child.on("close", (code) => {
-    if (runningProcesses[appId] && runningProcesses[appId].pid === child.pid) {
+    const proc = runningProcesses[appId];
+    if (proc && proc.child === child) {
       delete runningProcesses[appId];
       updateUI(appId, false);
       if (mainWindow && !mainWindow.isDestroyed())
@@ -385,8 +411,6 @@ function startNodeProcess(appId, appPath, isAuto = false) {
           log: `\n--- Kapanis (Kod: ${code}) ---`,
         });
     }
-  });
-
   });
 }
 
@@ -636,5 +660,17 @@ ipcMain.on("reorder-apps", (event, newAppsList) => {
 
 ipcMain.on("check-for-updates", () => {
   autoUpdater.checkForUpdatesAndNotify();
+});
+
+ipcMain.on("kill-ghost-process", (event, pid) => {
+  if (process.platform === "win32") {
+    exec(`taskkill /pid ${pid} /T /F`);
+  } else {
+    try {
+      process.kill(pid, "SIGKILL");
+    } catch (e) {
+      console.error("Ghost kill error:", e);
+    }
+  }
 });
 
