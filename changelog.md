@@ -10,6 +10,11 @@
 - **Quick Folder Access**: Instant explorer access to project locations via a new folder icon in the console.
 - **Modern Theme Selection**: Redesigned theme settings with interactive round icons and glowing active states.
 
+### 🚀 New Features (Advanced)
+- **Automatic Changelog**: App now detects updates and automatically fetches release notes from GitHub on first launch.
+- **Markdown Rendering**: Release notes are rendered with full Markdown support (lists, bold, links) using `marked`.
+- **Improved Auto-Updater**: Enhanced IPC bridge for reliable update checks and feedback.
+
 ### 🐛 Bug Fixes & Refinements
 - **Explorer Interaction**: Fixed folder buttons to highlight the item in Explorer instead of opening in VS Code.
 - **IPC Stability**: Resolved double-fire events and improved terminal log synchronization between main and renderer.
@@ -18,14 +23,10 @@
 ---
 
 ## [TR] Türkçe
-### 🚀 Yeni Özellikler
-- **Watchdog (Otomatik Yeniden Başlatma)**: Beklenmedik kapanmalarda projeleri otomatik saptar ve anında tekrar ayağa kaldırır.
-- **Görsel .env Editörü**: Tablo yapısında (Key-Value) güvenli, hızlı ve kolay çevre değişkenleri yönetimi.
-- **Toplu İşlemler**: Kategorilerdeki tüm projeleri tek tıkla topluca yönetebilme (Hepsini Başlat/Durdur).
-- **Port Çakışma Koruması**: Başlatma öncesi port meşguliyetini denetleyerek çakışmaları önceden engeller.
-- **Hafıza Sınırı (RAM Guard)**: Belirlediğiniz RAM limitini aşan süreçleri sisteminizi korumak için otomatik sonlandırır.
-- **Klasör Butonu**: Dosya konumuna doğrudan Explorer üzerinden (öğe seçili halde) hızlı erişim.
-- **Modern Tema Seçici**: Ayarlar ekranında dairesel interaktif ikonlarla yenilenen tema sistemi.
+### 🚀 Yeni Özellikler (Gelişmiş)
+- **Otomatik Sürüm Notları**: Uygulama artık güncellemeleri saptar ve ilk açılışta GitHub'dan sürüm notlarını çekerek sunar.
+- **Markdown İşleyici**: Sürüm notlarını `marked` ile tam Markdown desteğiyle (liste, kalın yazı vb.) şık bir şekilde gösterir.
+- **Gelişmiş Güncelleyici**: Daha kararlı güncelleme denetimi ve kullanıcı geri bildirimi için yenilenen IPC köprüsü.
 
 ### 🐛 Hata Düzeltmeleri ve İyileştirmeler
 - **Dosya Gezgini Düzeltmesi**: Klasör butonu artık öğeleri VS Code'da açmak yerine Explorer'da doğru konumu işaret eder.
@@ -33,11 +34,8 @@
 - **Görsel Düzen**: v1.1.1 için tüm UI metinleri senkronize edildi ve HD yerleşim boşlukları optimize edildi.
 
 ---
-- **Watchdog (Auto-Repair)**: Processes automatically restart if they crash unexpectedly.
-- **Visual .env Editor**: Dual-mode Key-Value editor for safe environment variable management.
-- **Batch Actions**: Start or stop all applications in a category with a single click.
-- **Port Conflict Guard**: Checks for occupied ports before starting a process to prevent errors.
-- **Memory Guard (RAM Limit)**: Automatically kills processes that exceed defined RAM limits.
+
+# Release Notes / Sürüm Notları - v1.1.0
 - **Quick Folder Access**: New button to instantly open project locations in Explorer.
 - **Modern Theme Selection**: Interactive round icons and active highlighting in settings.
 

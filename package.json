@@ -16,7 +16,8 @@
     "electron-updater": "^6.6.2",
     "iconv-lite": "^0.7.1",
     "pidusage": "^4.0.1",
-    "systeminformation": "^5.28.1"
+    "systeminformation": "^5.28.1",
+    "marked": "^12.0.0"
   },
   "devDependencies": {
     "electron": "^39.2.7",
@@ -26,7 +27,7 @@
     "appId": "com.keremzayim.nodelauncher",
     "productName": "KZ Node Launcher",
     "executableName": "KZ-Node-Launcher",
-    "artifactName": "${productName}-Setup-${version}.${ext}",
+    "artifactName": "KZ-Node-Launcher-Setup-${version}.${ext}",
     "directories": {
       "output": "dist"
     },

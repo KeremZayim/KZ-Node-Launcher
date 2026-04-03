@@ -122,15 +122,42 @@ function createWindow() {
     mainWindow.webContents.send("update-status", "Uygulama güncel.");
   });
 
-  mainWindow.webContents.on("did-finish-load", () => {
+  mainWindow.webContents.on("did-finish-load", async () => {
     const lastRunVersion = store.get("lastRunVersion", "0.0.0");
     const currentVersion = app.getVersion();
 
-    // Eğer kurulu versiyon, son çalıştırılan versiyondan büyükse (Update olduysa)
+    // Sürüm değiştiyse (İlk açılış veya Güncelleme sonrası)
     if (currentVersion !== lastRunVersion) {
-      mainWindow.webContents.send("show-whats-new", currentVersion);
-      // Yeni versiyonu kaydet ki bir sonraki açılışta tekrar çıkmasın
-      store.set("lastRunVersion", currentVersion);
+      log.info(`Sürüm değişti: ${lastRunVersion} -> ${currentVersion}. GitHub'dan notlar getiriliyor...`);
+      
+      try {
+        const https = require("https");
+        const options = {
+          hostname: "api.github.com",
+          path: `/repos/KeremZayim/KZ-Process-Manager/releases/tags/v${currentVersion}`,
+          headers: { "User-Agent": "KZ-Node-Launcher" }
+        };
+
+        https.get(options, (res) => {
+          let data = "";
+          res.on("data", (chunk) => data += chunk);
+          res.on("end", () => {
+            const release = JSON.parse(data);
+            if (release && release.body) {
+              mainWindow.webContents.send("show-changelog", {
+                version: currentVersion,
+                body: release.body
+              });
+              // Başarıyla gösterildikten sonra yeni versiyonu kaydet
+              store.set("lastRunVersion", currentVersion);
+            }
+          });
+        }).on("error", (e) => {
+          log.error("GitHub Changelog Fetch Hatası:", e);
+        });
+      } catch (err) {
+        log.error("Changelog süreci başarısız:", err);
+      }
     }
   });
 

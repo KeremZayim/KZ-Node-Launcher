@@ -76,7 +76,7 @@
                     <div class="splash-progress"></div>
                 </div>
                 <div class="splash-status">SİSTEM HAZIRLANIYOR...</div>
-                <div class="splash-version">v1.1.0</div>
+                <div class="splash-version">v1.1.1</div>
             </div>
         </div>
 
@@ -413,6 +413,25 @@
             <div class="modal-footer" style="justify-content: space-between;">
                 <button id="checkUpdateBtn" class="btn-secondary"><i class="fa-solid fa-rotate"></i> Güncellemeleri Denetle</button>
                 <button id="closeSettingsBtn" class="btn-primary">Ayarları Kaydet ve Kapat</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="changelogModal" class="modal-overlay">
+        <div class="modal-content" style="width: 700px; max-height: 80vh; display: flex; flex-direction: column;">
+            <div class="modal-header">
+                <span id="changelogTitle">Yenilikler (v1.1.1)</span>
+                <i class="fa-solid fa-xmark" onclick="document.getElementById('changelogModal').style.display='none'"></i>
+            </div>
+            <div id="changelogBody" class="markdown-body" style="padding: 25px; overflow-y: auto; flex: 1; font-size: 14px; line-height: 1.7; color: var(--text-secondary);">
+                <!-- Markdown content will be injected here -->
+                <div style="text-align: center; padding: 40px; color: var(--accent-purple);">
+                    <i class="fa-solid fa-spinner fa-spin" style="font-size: 32px; margin-bottom: 15px;"></i>
+                    <p>Sürüm notları GitHub'dan yükleniyor...</p>
+                </div>
+            </div>
+            <div class="modal-footer" style="justify-content: flex-end;">
+                <button class="btn-primary" onclick="document.getElementById('changelogModal').style.display='none'">Harika! Teşekkürler</button>
             </div>
         </div>
     </div>

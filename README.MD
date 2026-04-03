@@ -19,7 +19,8 @@ Uygulamanın bu sürümü, standart bir başlatıcıyı tam kapsamlı bir **Sür
 *   🧠 **Hafıza Koruması (Memory Guard):** Belirlediğiniz RAM limitini aşan süreçleri sisteminizi korumak için otomatik durdurur.
 *   📂 **Hızlı Konum Erişimi:** Proje dosyalarına doğrudan konsol ekranındaki butonla Windows Explorer üzerinden ulaşın.
 *   🎨 **Lüks Tasarım & Temalar:** 4 farklı premium tema (Cyber, Carbon, Frost, Mint) ve modern yuvarlak ikonlu ayarlar panel.
-*   🔄 **Otomatik Güncelleme:** GitHub üzerinden yeni sürümleri otomatik denetler ve "Neler Yeni?" bilgilendirmesi sunar.
+*   🔄 **Akıllı Güncelleme & Changelog:** Yeni sürümleri otomatik denetler, indirir ve ilk açılışta neyin değiştiğini GitHub'dan çekerek "Neler Yeni?" penceresiyle sunar.
+*   🖋️ **Markdown Desteği:** Sürüm notlarını GitHub üzerinde yazdığınız şık formatta (listeler, kalın yazılar vb.) uygulama içinden doğrudan okuyun.
 
 ---
 

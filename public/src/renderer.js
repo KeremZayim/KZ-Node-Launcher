@@ -1074,3 +1074,41 @@ async function openAutoStartManager() {
     });
     autoStartModal.style.display = "flex";
 }
+// Handle ChangeLog (What's New)
+ipcRenderer.on("show-changelog", (event, { version, body }) => {
+    const modal = document.getElementById("changelogModal");
+    const title = document.getElementById("changelogTitle");
+    const bodyEl = document.getElementById("changelogBody");
+    
+    if (!modal || !title || !bodyEl) return;
+
+    title.innerText = `Yenilikler (v${version})`;
+    
+    try {
+        const { marked } = require("marked");
+        bodyEl.innerHTML = marked.parse(body);
+    } catch (err) {
+        console.error("Markdown rendering error:", err);
+        bodyEl.innerText = body; // Fallback to raw text
+    }
+
+    modal.style.display = "flex";
+});
+
+// Handle Updater Status (from settings check)
+ipcRenderer.on("update-status", (event, message) => {
+    const btn = document.getElementById("checkUpdateBtn");
+    if (btn) {
+        btn.innerHTML = `<i class="fa-solid fa-circle-info"></i> ${message}`;
+        btn.disabled = false;
+        setTimeout(() => {
+            btn.innerHTML = '<i class="fa-solid fa-rotate"></i> Güncellemeleri Denetle';
+        }, 5000);
+    }
+    
+    if (message.includes("Yeni bir güncelleme bulundu") || message.includes("indiriliyor")) {
+        showAlert("Güncelleme", message, "success");
+    } else if (message.includes("Hata")) {
+        showAlert("Güncelleme Hatası", message, "error");
+    }
+});
