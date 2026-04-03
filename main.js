@@ -158,25 +158,38 @@ function createTray() {
         click: async () => {
           const activeCount = Object.keys(runningProcesses).length;
           if (activeCount > 0) {
-            const { response } = await dialog.showMessageBox(mainWindow, {
-              type: "warning",
-              title: "Açık Projeler Var!",
-              message: "Arka planda hala çalışmakta olan " + activeCount + " projeniz var.\n\nEğer Node Launcher'ı tamamen kapatırsanız bu projeler kontrol dışı kalabilir ve yeniden açtığınızda otomatik eşleşemeyebilirler.\n\nYine de kapatmak istiyor musunuz?",
-              buttons: ["İptal", "Kapat"],
-              defaultId: 0,
-              cancelId: 0
-            });
-            if (response === 0) return;
+            mainWindow.show();
+            mainWindow.focus();
+            mainWindow.webContents.send("request-exit-confirmation", activeCount);
+          } else {
+            isQuitting = true;
+            app.quit();
           }
-          isQuitting = true;
-          app.quit();
         },
       },
     ])
   );
 }
 
+ipcMain.on("confirm-exit", () => {
+  isQuitting = true;
+  app.quit();
+});
+
+
+ipcMain.on("open-terminal", (event, folderPath) => {
+  const { exec } = require("child_process");
+  const command = process.platform === "win32" ? "start cmd" : "open -a Terminal";
+  exec(command, { cwd: folderPath });
+});
+
+ipcMain.on("open-folder", (event, folderPath) => {
+  shell.openPath(folderPath);
+});
+
+
 // --- 3. OTOMATİK BAŞLATMA ---
+
 function runAutoStartSequence() {
   const savedApps = store.get("apps") || [];
   savedApps.forEach((app) => {
@@ -385,20 +398,25 @@ function startNodeProcess(appId, appPath, isAuto = false) {
   updateUI(appId, true);
 
   child.stdout.on("data", (data) => {
+    const logStr = data.toString();
+    appendToFileLog(appId, logStr); // Lokale kaydet
     if (mainWindow && !mainWindow.isDestroyed())
       mainWindow.webContents.send("process-log", {
         appId,
-        log: data.toString(),
+        log: logStr,
       });
   });
 
   child.stderr.on("data", (data) => {
+    const logStr = `HATA: ${data.toString()}`;
+    appendToFileLog(appId, logStr); // Lokale kaydet
     if (mainWindow && !mainWindow.isDestroyed())
       mainWindow.webContents.send("process-log", {
         appId,
-        log: `HATA: ${data.toString()}`,
+        log: logStr,
       });
   });
+
 
   child.on("close", (code) => {
     const proc = runningProcesses[appId];
@@ -450,34 +468,70 @@ ipcMain.handle("read-package-scripts", async (event, folderPath) => {
   return null;
 });
 
+// --- GRUP & PROJE YÖNETİMİ ---
+
+ipcMain.handle("get-groups", () => store.get("groups") || []);
+
+ipcMain.on("add-group", (event, groupName) => {
+  const groups = store.get("groups") || [];
+  const newGroup = { id: Date.now(), name: groupName };
+  groups.push(newGroup);
+  store.set("groups", groups);
+  event.sender.send("update-group-list", groups);
+});
+
+ipcMain.on("delete-group", (event, groupId) => {
+  let groups = store.get("groups") || [];
+  groups = groups.filter(g => g.id !== groupId);
+  store.set("groups", groups);
+
+  let apps = store.get("apps") || [];
+  apps = apps.map(app => {
+    if (app.groupId === groupId) delete app.groupId;
+    return app;
+  });
+  store.set("apps", apps);
+  
+  event.sender.send("update-group-list", groups);
+  event.sender.send("update-app-list", apps);
+});
+
 ipcMain.on("add-app", (event, appData) => {
   const apps = store.get("apps") || [];
   apps.push(appData);
   store.set("apps", apps);
   event.sender.send("update-app-list", apps);
 });
+
 ipcMain.handle("get-apps", () => store.get("apps") || []);
+
 ipcMain.handle(
   "get-process-pid",
   (event, appId) => runningProcesses[appId]?.pid
 );
+
 ipcMain.handle(
   "get-process-status",
   (event, appId) => !!runningProcesses[appId]
 );
+
 ipcMain.on("start-process", (event, appInfo) =>
   startNodeProcess(appInfo.id, appInfo.path)
 );
+
 ipcMain.on("stop-process", (event, appId) => stopProcessLogic(appId));
+
 ipcMain.on("edit-app", (event, updatedApp) => {
+
   let apps = store.get("apps") || [];
   const index = apps.findIndex((app) => app.id === updatedApp.id);
   if (index !== -1) {
-    apps[index] = updatedApp;
+    apps[index] = { ...apps[index], ...updatedApp };
     store.set("apps", apps);
     event.sender.send("update-app-list", apps);
   }
 });
+
 ipcMain.on("update-auto-start", (event, { appId, enabled }) => {
   const apps = store.get("apps") || [];
   const index = apps.findIndex((app) => app.id === appId);
@@ -556,7 +610,9 @@ ipcMain.handle("scan-ghost-processes", async () => {
       // Port bilgisi 2. sıradadır (0.0.0.0:3000)
       const localAddress = parts[1];
 
-      if (!pid || pid === myPid) continue;
+      // KRİTİK FİLTRE: Kendi PID'imizi ve ZATEN YÖNETİLEN (ekli ve çalışan) PID'leri atla
+      const managedPids = Object.values(runningProcesses).map(p => p.nodePid || p.pid);
+      if (!pid || pid === myPid || managedPids.includes(pid)) continue;
 
       // Portu temizle (IP kısmını at)
       const port = localAddress.includes(":")
@@ -619,9 +675,19 @@ ipcMain.handle("scan-ghost-processes", async () => {
       // Sistem dosyası koruması
       if (IGNORED_PATHS.some((p) => lowerData.includes(p))) continue;
 
-      // Kayıtlı uygulamalarda zaten bu Port var mı?
-      // (Eğer varsa ghost olarak gösterme, zaten takipli)
-      // Ancak kullanıcı "bulmuyor" dediği için bu kontrolü esnetelim, her şeyi göstersin.
+      // Kayıtlı uygulamalarda zaten bu süreç var mı?
+      const isAlreadyRegistered = savedApps.some(app => {
+          const appPathNorm = path.normalize(app.path).toLowerCase();
+          const ghostPathNorm = path.normalize(displayPath).toLowerCase();
+          const cmdNorm = rawData.toLowerCase();
+
+          // Yol eşleşmesi veya Komut Satırı içinde uygulamanın klasörünün geçmesi
+          return ghostPathNorm.includes(appPathNorm) || 
+                 appPathNorm.includes(ghostPathNorm) || 
+                 cmdNorm.includes(appPathNorm);
+      });
+
+      if (isAlreadyRegistered) continue;
 
       // Benzersiz ID (PID + Port)
       const uniqueKey = `ghost_${pid}_${port}`;
@@ -641,6 +707,53 @@ ipcMain.handle("scan-ghost-processes", async () => {
   }
 
   return [...resultsMap.values()];
+});
+
+ipcMain.handle("read-env", async (event, folderPath) => {
+  const fs = require("fs");
+  const envPath = path.join(folderPath, ".env");
+  if (fs.existsSync(envPath)) {
+    try {
+      return fs.readFileSync(envPath, "utf8");
+    } catch (err) {
+      console.error("Env reading error:", err);
+      return null;
+    }
+  }
+  return null;
+});
+
+ipcMain.handle("save-env", async (event, { folderPath, content }) => {
+  const fs = require("fs");
+  const envPath = path.join(folderPath, ".env");
+  try {
+    fs.writeFileSync(envPath, content, "utf8");
+    return { success: true };
+  } catch (err) {
+    console.error("Env saving error:", err);
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.on("run-maintenance", (event, { appId, appPath, command }) => {
+  // npm install, npm update vb. için
+  const child = spawn("cmd.exe", ["/c", `chcp 65001 > nul && npm ${command}`], {
+    cwd: appPath,
+    shell: true,
+    env: { ...process.env, FORCE_COLOR: "true" }
+  });
+
+  child.stdout.on("data", (data) => {
+    mainWindow.webContents.send("process-log", { appId, log: data.toString() });
+  });
+
+  child.stderr.on("data", (data) => {
+    mainWindow.webContents.send("process-log", { appId, log: `HATA: ${data.toString()}` });
+  });
+
+  child.on("close", (code) => {
+    mainWindow.webContents.send("process-log", { appId, log: `\n--- Bakım Tamamlandı (Kod: ${code}) ---` });
+  });
 });
 
 ipcMain.handle("select-image", async () => {
@@ -673,4 +786,50 @@ ipcMain.on("kill-ghost-process", (event, pid) => {
     }
   }
 });
+
+// --- LOG YÖNETİMİ ---
+
+function appendToFileLog(appId, logStr) {
+  const fs = require("fs");
+  const logsDir = path.join(app.getPath("userData"), "logs");
+  if (!fs.existsSync(logsDir)) fs.mkdirSync(logsDir, { recursive: true });
+  
+  const logFile = path.join(logsDir, `app_${appId}.log`);
+  fs.appendFileSync(logFile, `[${new Date().toLocaleString()}] ${logStr}`, "utf8");
+}
+
+ipcMain.handle("get-logs", async (event, appId) => {
+  const fs = require("fs");
+  const logFile = path.join(app.getPath("userData"), "logs", `app_${appId}.log`);
+  if (fs.existsSync(logFile)) {
+    try {
+      // Sadece son 5000 karakteri veya optimize edilmiş bir okumayı düşünebiliriz ama şimdilik tamamını gönderelim.
+      return fs.readFileSync(logFile, "utf8");
+    } catch (err) {
+      return `Log okuma hatasi: ${err.message}`;
+    }
+  }
+  return "Henüz log kaydı bulunmuyor.";
+});
+
+ipcMain.handle("clear-all-logs", async () => {
+    const fs = require("fs");
+    const logsDir = path.join(app.getPath("userData"), "logs");
+    if (fs.existsSync(logsDir)) {
+        try {
+            const files = fs.readdirSync(logsDir);
+            for (const file of files) {
+                fs.unlinkSync(path.join(logsDir, file));
+            }
+            return { success: true };
+        } catch (err) {
+            console.error("Logs cleaning error:", err);
+            return { success: false, error: err.message };
+        }
+    }
+    return { success: true };
+});
+
+
+
 

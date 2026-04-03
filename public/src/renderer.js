@@ -4,787 +4,884 @@
  | ' /  |  _|   | |_) | |  _|   | |\/| |   / /     / _ \    \ V /   | |  | |\/| |
  | . \  | |___  |  _ <  | |___  | |  | |  / /_    / ___ \    | |    | |  | |  | |
  |_|\_\ |_____| |_| \_\ |_____| |_|  |_| /____|  /_/   \_\   |_|   |___| |_|  |_|
-                                                                                 
+                                                                                
  ===============================================================================
- DOSYA: 3 - public/src/renderer.js (Frontend Mantığı) - UI Sync Update
+ DOSYA: renderer.js (Advanced UI Logic - Final Polish)
  ===============================================================================
 */
 
 const { ipcRenderer } = require("electron");
 
+// Dom Elements - Layout
 const appGrid = document.getElementById("appGrid");
-const dashboardView = document.getElementById("dashboard-view");
-const consoleView = document.getElementById("console-view");
+const loadingScreen = document.getElementById("loading-screen");
+const navItems = document.querySelectorAll(".nav-item[data-view]");
+
+// Dom Elements - Console
 const terminalOutput = document.getElementById("terminal-output");
 const activeAppName = document.getElementById("activeAppName");
 const activeAppPath = document.getElementById("activeAppPath");
 const liveBadge = document.getElementById("liveBadge");
 const toggleProcessBtn = document.getElementById("toggleProcessBtn");
-const statsContainer = document.getElementById("statsContainer");
 const cpuValue = document.getElementById("cpuValue");
 const memValue = document.getElementById("memValue");
+const statsContainer = document.getElementById("statsContainer");
 
-const openAutoStartManagerBtn = document.getElementById(
-  "openAutoStartManagerBtn"
-);
-const openSettingsBtn = document.getElementById("openSettingsBtn");
-const autoStartModal = document.getElementById("autoStartModal");
-const autoStartListContainer = document.getElementById(
-  "autoStartListContainer"
-);
-const settingsModal = document.getElementById("settingsModal");
-const settingStartMinimized = document.getElementById("settingStartMinimized");
-const winAutoStartToggle = document.getElementById("winAutoStartToggle");
-const closeAutoStartModalBtn = document.getElementById(
-  "closeAutoStartModalBtn"
-);
-const closeAutoStartBtn = document.getElementById("closeAutoStartBtn");
-const closeSettingsModalBtn = document.getElementById("closeSettingsModalBtn");
-const closeSettingsBtn = document.getElementById("closeSettingsBtn");
-const manualCheckUpdateBtn = document.getElementById("manualCheckUpdateBtn");
-const currentVerText = document.getElementById("currentVerText");
-const updateStatusMsg = document.getElementById("updateStatusMsg");
-const autoUpdateToggle = document.getElementById("autoUpdateToggle");
-
-const filterDropdownBtn = document.getElementById("filterDropdownBtn");
-const filterDropdownMenu = document.getElementById("filterDropdownMenu");
+// Dom Elements - Modals
+const addChoiceModal = document.getElementById("addChoiceModal");
 const editModal = document.getElementById("editModal");
-const editNameInput = document.getElementById("editName");
-const editPathInput = document.getElementById("editPath");
-const editAutoStartInput = document.getElementById("editAutoStart");
-const selectedIconDisplay = document.getElementById("selectedIconDisplay");
-const deleteModal = document.getElementById("deleteModal");
-const confirmDeleteBtn = document.getElementById("confirmDeleteBtn");
-const cancelDeleteBtn = document.getElementById("cancelDeleteBtn");
 const scanModal = document.getElementById("scanModal");
-const scanResultsList = document.getElementById("scanResultsList");
-const scanGhostsBtn = document.getElementById("scanGhostsBtn");
-const closeScanModalBtn = document.getElementById("closeScanModalBtn");
-const closeScanBtn = document.getElementById("closeScanBtn");
-const alertModal = document.getElementById("alertModal");
-const closeAlertModalBtn = document.getElementById("closeAlertModalBtn");
+const autoStartModal = document.getElementById("autoStartModal");
+const settingsModal = document.getElementById("settingsModal");
+const promptModal = document.getElementById("promptModal");
+const npmScriptModal = document.getElementById("npmScriptModal");
 
-const loadingScreen = document.getElementById("loading-screen");
-
+// State
 let currentViewingApp = null;
 let currentAppPid = null;
 let currentEditingAppId = null;
 let currentSelectedIcon = "🚀";
 let appLogs = {};
 let currentFilter = "all";
-let appToDeleteId = null;
-let updateDotsInterval = null;
+let currentSort = "status";
 
-// --- BAŞLANGIÇ ---
+// --- INITIALIZATION ---
 document.addEventListener("DOMContentLoaded", async () => {
-  setTimeout(async () => {
-    if (loadingScreen) {
-      loadingScreen.style.opacity = "0";
-      loadingScreen.style.transition = "opacity 0.5s ease";
-      setTimeout(() => {
-        loadingScreen.style.display = "none";
-      }, 500);
-    }
-    // İlk yüklemede verileri çek
-    await loadAndRenderApps();
-  }, 3000);
+    // Reveal UI
+    setTimeout(() => {
+        if (loadingScreen) {
+            loadingScreen.style.opacity = "0";
+            loadingScreen.style.pointerEvents = "none";
+            setTimeout(() => loadingScreen.style.display = "none", 500);
+        }
+    }, 1000);
+
+    initSidebar();
+    initWindowControls();
+    initModals();
+    populateIconPool();
+    loadAndRenderApps();
+    initMouseGlow();
+
+    // Load Theme
+    const settings = await ipcRenderer.invoke("get-settings");
+    setTheme(settings.theme || 'cyber-amethyst', false);
 });
 
-// --- YARDIMCI FONKSİYONLAR ---
-function showCustomAlert(message, title = "Bilgi") {
-  const titleEl = document.getElementById("alertTitle");
-  const msgEl = document.getElementById("alertMessage");
-  if (titleEl) titleEl.innerText = title;
-  if (msgEl) msgEl.innerText = message;
-  if (alertModal) alertModal.style.display = "flex";
+// --- INTERACTIVE FX ---
+
+function initMouseGlow() {
+    const glow = document.getElementById("mouse-glow");
+    if (!glow) return;
+
+    window.addEventListener("mousemove", (e) => {
+        // Use requestAnimationFrame for performance
+        requestAnimationFrame(() => {
+            glow.style.left = e.clientX + "px";
+            glow.style.top = e.clientY + "px";
+        });
+    });
 }
-if (closeAlertModalBtn)
-  closeAlertModalBtn.addEventListener(
-    "click",
-    () => (alertModal.style.display = "none")
-  );
 
-const minBtn = document.getElementById("minBtn");
-const maxBtn = document.getElementById("maxBtn");
-const closeBtn = document.getElementById("closeBtn");
-if (minBtn)
-  minBtn.addEventListener("click", () => ipcRenderer.send("minimize-window"));
-if (maxBtn)
-  maxBtn.addEventListener("click", () => ipcRenderer.send("maximize-window"));
-if (closeBtn)
-  closeBtn.addEventListener("click", () => ipcRenderer.send("close-window"));
+// --- UI LOGIC ---
 
-if (filterDropdownBtn)
-  filterDropdownBtn.addEventListener("click", (e) => {
-    e.stopPropagation();
-    filterDropdownMenu.classList.toggle("show");
-  });
-window.addEventListener("click", () => {
-  if (filterDropdownMenu) filterDropdownMenu.classList.remove("show");
-});
-window.applyFilter = (filterType) => {
-  currentFilter = filterType;
-  if (filterDropdownBtn)
-    filterDropdownBtn.classList.toggle(
-      "filter-active-state",
-      filterType !== "all"
-    );
-  if (filterDropdownMenu) filterDropdownMenu.classList.remove("show");
-  loadAndRenderApps();
-};
+function initSidebar() {
+    const allNavItems = document.querySelectorAll(".nav-item");
+    allNavItems.forEach(item => {
+        item.addEventListener("click", () => {
+            const targetView = item.getAttribute("data-view");
+            const isModal = item.getAttribute("data-modal") === "true";
+
+            if (targetView && !isModal) {
+                switchView(targetView);
+                allNavItems.forEach(i => i.classList.remove("active"));
+                item.classList.add("active");
+            }
+        });
+    });
+
+    // ESC Key Support for Modals
+    window.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") {
+            document.querySelectorAll(".modal-overlay").forEach(m => m.style.display = "none");
+            // Also close filter if open
+            const menu = document.getElementById("filterDropdownMenu");
+            if (menu) menu.style.display = "none";
+        }
+    });
+}
+
+function switchView(viewId) {
+    const views = document.querySelectorAll(".view-content");
+    views.forEach(v => {
+        v.style.display = "none";
+    });
+
+    const target = document.getElementById(viewId);
+    if (target) {
+        target.style.display = (viewId === "console-view") ? "flex" : "block";
+    }
+}
+
+function initWindowControls() {
+    document.getElementById("minBtn")?.addEventListener("click", () => ipcRenderer.send("minimize-window"));
+    document.getElementById("maxBtn")?.addEventListener("click", () => ipcRenderer.send("maximize-window"));
+    document.getElementById("closeBtn")?.addEventListener("click", () => ipcRenderer.send("close-window"));
+}
+
+function initModals() {
+    document.querySelectorAll(".modal-overlay").forEach(overlay => {
+        overlay.addEventListener("click", (e) => {
+            if (e.target === overlay) overlay.style.display = "none";
+        });
+    });
+
+    document.getElementById("addBtn")?.addEventListener("click", () => {
+        addChoiceModal.style.display = "flex";
+    });
+    
+    document.getElementById("backBtn")?.addEventListener("click", () => switchView("dashboard-view"));
+    document.getElementById("closeModalBtn")?.addEventListener("click", () => editModal.style.display = "none");
+    document.getElementById("cancelEditBtn")?.addEventListener("click", () => editModal.style.display = "none");
+    
+    // Ghost Scan
+    document.getElementById("scanGhostsBtn")?.addEventListener("click", async () => {
+        const icon = document.querySelector("#scanGhostsBtn i");
+        icon.classList.add("fa-spin");
+        const ghosts = await ipcRenderer.invoke("scan-ghost-processes");
+        icon.classList.remove("fa-spin");
+        showScanResults(ghosts);
+    });
+
+    // AutoStart Manager
+    document.getElementById("openAutoStartManagerBtn")?.addEventListener("click", openAutoStartManager);
+    document.getElementById("closeAutoStartBtn")?.addEventListener("click", () => autoStartModal.style.display = "none");
+
+    // Settings
+    document.getElementById("openSettingsBtn")?.addEventListener("click", openSettings);
+    document.getElementById("closeSettingsBtn")?.addEventListener("click", () => settingsModal.style.display = "none");
+
+    // Güncellemeleri Denetle
+    document.getElementById("checkUpdateBtn")?.addEventListener("click", () => {
+        const btn = document.getElementById("checkUpdateBtn");
+        btn.innerHTML = '<i class="fa-solid fa-rotate fa-spin"></i> Kontrol ediliyor...';
+        btn.disabled = true;
+        ipcRenderer.send("check-for-updates");
+        setTimeout(() => {
+            btn.innerHTML = '<i class="fa-solid fa-rotate"></i> Güncellemeleri Denetle';
+            btn.disabled = false;
+        }, 5000);
+    });
+
+    // GitHub Butonu
+    document.getElementById("githubBtn")?.addEventListener("click", (e) => {
+        e.preventDefault();
+        const { shell } = require("electron");
+        shell.openExternal("https://github.com/KeremZayim");
+    });
+
+    // Icon Upload
+    document.getElementById("uploadImgBtn")?.addEventListener("click", async () => {
+        const imgPath = await ipcRenderer.invoke("select-image");
+        if (imgPath) {
+            currentSelectedIcon = imgPath;
+            const preview = document.createElement("img");
+            preview.src = imgPath;
+            preview.style.width = "40px";
+            preview.style.height = "40px";
+            preview.style.borderRadius = "8px";
+            preview.style.objectFit = "cover";
+            document.getElementById("uploadImgBtn").innerHTML = "";
+            document.getElementById("uploadImgBtn").appendChild(preview);
+        }
+    });
+
+    // Filter Dropdown
+    document.getElementById("filterDropdownBtn")?.addEventListener("click", () => {
+        const menu = document.getElementById("filterDropdownMenu");
+        if (menu) menu.style.display = menu.style.display === "block" ? "none" : "block";
+        const sortMenu = document.getElementById("sortDropdownMenu");
+        if (sortMenu) sortMenu.style.display = "none";
+    });
+
+    // Sort Dropdown
+    document.getElementById("sortDropdownBtn")?.addEventListener("click", () => {
+        const menu = document.getElementById("sortDropdownMenu");
+        if (menu) menu.style.display = menu.style.display === "block" ? "none" : "block";
+        const filterMenu = document.getElementById("filterDropdownMenu");
+        if (filterMenu) filterMenu.style.display = "none";
+    });
+}
+
+// --- APP CORE LOGIC ---
 
 async function loadAndRenderApps() {
-  const apps = await ipcRenderer.invoke("get-apps");
-  renderApps(apps);
-}
-const addBtn = document.getElementById("addBtn");
-if (addBtn) {
-  addBtn.addEventListener("click", () => {
-    if (addChoiceModal) addChoiceModal.style.display = "flex";
-  });
-}
+    const apps = await ipcRenderer.invoke("get-apps");
+    const groups = await ipcRenderer.invoke("get-groups");
+    
+    const appsWithStatus = await Promise.all(apps.map(async (app) => ({
+        ...app,
+        isRunning: await ipcRenderer.invoke("get-process-status", app.id)
+    })));
 
-if (selectJsFileBtn) {
-  selectJsFileBtn.addEventListener("click", async () => {
-    if (addChoiceModal) addChoiceModal.style.display = "none";
-
-    const filePath = await ipcRenderer.invoke("select-file");
-    if (filePath) {
-      const apps = await ipcRenderer.invoke("get-apps");
-      if (apps.some((app) => app.path === filePath))
-        return showCustomAlert("Bu proje zaten ekli!", "Uyarı");
-      const newApp = {
-        id: Date.now(),
-        name: filePath.replace(/^.*[\\\/]/, ""),
-        path: filePath,
-        icon: "🚀",
-        autoStart: false,
-        type: "js",
-      };
-      ipcRenderer.send("add-app", newApp);
+    // Sıralama Uygula
+    if (currentSort === "status") {
+        appsWithStatus.sort((a, b) => (a.isRunning === b.isRunning) ? 0 : a.isRunning ? -1 : 1);
+    } else if (currentSort === "az") {
+        appsWithStatus.sort((a, b) => a.name.localeCompare(b.name));
+    } else if (currentSort === "za") {
+        appsWithStatus.sort((a, b) => b.name.localeCompare(a.name));
     }
-  });
+
+    let filtered = appsWithStatus;
+    if (currentFilter === "running") filtered = appsWithStatus.filter(a => a.isRunning);
+    else if (currentFilter === "stopped") filtered = appsWithStatus.filter(a => !a.isRunning);
+    else if (typeof currentFilter === "number") filtered = appsWithStatus.filter(a => a.groupId == currentFilter);
+    else if (currentFilter === "general") filtered = appsWithStatus.filter(a => !a.groupId);
+
+    renderAppCards(filtered, groups);
+    updateOverviewStats(appsWithStatus);
+    renderGroups(groups);
+    populateGroupSelect(groups);
 }
 
-
-if (selectNpmScriptBtn) {
-  selectNpmScriptBtn.addEventListener("click", async () => {
-    if (addChoiceModal) addChoiceModal.style.display = "none";
-    const folderPath = await ipcRenderer.invoke("select-folder");
-    if (folderPath) {
-      const scripts = await ipcRenderer.invoke("read-package-scripts", folderPath);
-      if (!scripts || Object.keys(scripts).length === 0) {
-        return showCustomAlert("package.json bulunamadı veya scripts boş!", "Hata");
-      }
-      showNpmScripts(folderPath, scripts);
-    }
-  });
+function updateOverviewStats(apps) {
+    const activeCount = apps.filter(a => a.isRunning).length;
+    const overview = document.getElementById("statsOverview");
+    if (overview) overview.innerText = `Şu an aktif ${activeCount} proje yönetiliyor`;
 }
 
-function showNpmScripts(folderPath, scripts) {
-  if (!npmScriptsList) return;
-  npmScriptsList.innerHTML = "";
-  
-  Object.entries(scripts).forEach(([name, cmd]) => {
-    const item = document.createElement("div");
-    item.className = "script-item";
-    item.innerHTML = `
-      <div style="display:flex; flex-direction:column;">
-        <div class="script-name">${name}</div>
-        <div class="script-cmd" title="${cmd}">${cmd}</div>
-      </div>
-      <button class="btn-select-script">SEÇ</button>
-    `;
-    item.querySelector(".btn-select-script").addEventListener("click", () => {
-      addNpmApp(folderPath, name);
-      if (npmScriptModal) npmScriptModal.style.display = "none";
+window.applyFilter = (filter) => {
+    currentFilter = filter;
+    switchView("dashboard-view");
+    
+    // Highlight Dashboard in sidebar
+    const navItems = document.querySelectorAll(".nav-item");
+    navItems.forEach(i => {
+        i.classList.remove("active");
+        if (i.getAttribute("data-view") === "dashboard-view") i.classList.add("active");
     });
-    npmScriptsList.appendChild(item);
-  });
-  
-  if (npmScriptModal) npmScriptModal.style.display = "flex";
+
+    loadAndRenderApps();
+    const filterMenu = document.getElementById("filterDropdownMenu");
+    if (filterMenu) filterMenu.style.display = "none";
+};
+
+window.applySort = (sort) => {
+    currentSort = sort;
+    loadAndRenderApps();
+    const sortMenu = document.getElementById("sortDropdownMenu");
+    if (sortMenu) sortMenu.style.display = "none";
+};
+
+async function renderGroups(groups) {
+    const apps = await ipcRenderer.invoke("get-apps");
+    const container = document.getElementById("groupsContainer");
+    if (!container) return;
+    container.innerHTML = "";
+
+    // Virtual "General" Group
+    const generalProjectCount = apps.filter(a => !a.groupId).length;
+    const generalCard = document.createElement("div");
+    generalCard.className = "app-card system-card";
+    generalCard.style.textAlign = "center";
+    generalCard.innerHTML = `
+        <div class="card-body">
+            <i class="fa-solid fa-layer-group" style="font-size:32px; color:var(--accent-cyan); margin-bottom:12px;"></i>
+            <h3>Genel</h3>
+            <p style="font-size:12px; opacity:0.6;">${generalProjectCount} Proje</p>
+        </div>
+        <div class="card-footer" style="padding:15px; border-top:1px solid rgba(255,255,255,0.05); color:var(--text-dim); font-size:11px;">
+            SİSTEM KATEGORİSİ
+        </div>
+    `;
+    generalCard.onclick = () => applyFilter("general");
+    container.appendChild(generalCard);
+
+    // Custom Groups
+    groups.forEach(group => {
+        const projectCount = apps.filter(a => a.groupId == group.id).length;
+        const card = document.createElement("div");
+        card.className = "app-card";
+        card.style.textAlign = "center";
+        card.style.cursor = "pointer";
+        card.innerHTML = `
+            <div class="card-body">
+                <i class="fa-solid fa-folder" style="font-size:32px; color:var(--accent-solid); margin-bottom:12px;"></i>
+                <h3>${group.name}</h3>
+                <p style="font-size:12px; opacity:0.6;">${projectCount} Proje</p>
+            </div>
+            <div class="card-footer" style="display:flex; gap:10px; padding:15px; border-top:1px solid rgba(255,255,255,0.05);">
+                <button class="mini-btn" onclick="event.stopPropagation(); openGroupModal(${group.id}, '${group.name}')" style="flex:1;">DÜZENLE</button>
+                <button class="mini-btn" onclick="event.stopPropagation(); deleteGroup(${group.id})" style="flex:1; border-color:rgba(239,68,68,0.2); color:var(--danger);">SİL</button>
+            </div>
+        `;
+        card.onclick = () => applyFilter(group.id);
+        container.appendChild(card);
+    });
 }
 
-async function addNpmApp(folderPath, scriptName) {
-  const apps = await ipcRenderer.invoke("get-apps");
-  // Check if same folder and script already added
-  if (apps.some((app) => app.path === folderPath && app.script === scriptName)) {
-    return showCustomAlert("Bu script zaten ekli!", "Uyarı");
-  }
+let currentEditingGroupId = null;
 
-  const newApp = {
-    id: Date.now(),
-    name: `${folderPath.replace(/^.*[\\\/]/, "")} (${scriptName})`,
-    path: folderPath,
-    icon: "📦",
-    autoStart: false,
-    type: "npm",
-    script: scriptName,
-  };
-  ipcRenderer.send("add-app", newApp);
-}
+window.openGroupModal = (groupId = null, name = "") => {
+    currentEditingGroupId = groupId;
+    const modal = document.getElementById("groupModal");
+    const title = document.getElementById("groupModalTitle");
+    const input = document.getElementById("groupNameInput");
 
-ipcRenderer.on("update-app-list", (event, apps) => {
-  renderApps(apps);
-  if (editModal) editModal.style.display = "none";
+    title.innerText = groupId ? "Kategoriyi Düzenle" : "Yeni Kategori";
+    input.value = name;
+    modal.style.display = "flex";
+    input.focus();
+};
+
+document.getElementById("saveGroupBtn")?.addEventListener("click", () => {
+    const name = document.getElementById("groupNameInput").value.trim();
+    if (!name) return;
+
+    if (currentEditingGroupId) {
+        ipcRenderer.send("edit-group", { id: currentEditingGroupId, name });
+    } else {
+        ipcRenderer.send("add-group", name);
+    }
+    document.getElementById("groupModal").style.display = "none";
 });
 
-/* GÜNCELLENMİŞ RENDERER.JS BÖLÜMÜ 
-   (renderApps + Sürükleme Mantığı)
-*/
+window.createNewGroup = () => openGroupModal();
 
-async function renderApps(apps) {
-  if (!appGrid) return;
-
-  const appsWithStatus = await Promise.all(
-    apps.map(async (app) => ({
-      ...app,
-      isRunning: await ipcRenderer.invoke("get-process-status", app.id),
-    }))
-  );
-
-  let filtered = appsWithStatus;
-  if (currentFilter === "running")
-    filtered = appsWithStatus.filter((a) => a.isRunning);
-  else if (currentFilter === "stopped")
-    filtered = appsWithStatus.filter((a) => !a.isRunning);
-
-  appGrid.innerHTML = "";
-
-  if (filtered.length === 0) {
-    appGrid.innerHTML = `<div style="text-align:center; color:#555; grid-column:1/-1; margin-top:50px;">Henüz proje yok.</div>`;
-    return;
-  }
-
-  filtered.forEach((app) => {
-    const card = document.createElement("div");
-    card.className = "app-card";
-
-    // --- YENİ EKLENEN KISIM (DRAG & DROP BAŞLANGICI) ---
-    // Sadece "Hepsi" filtresindeyken sürüklemeye izin verelim (sıralama bozulmasın diye)
-    if (currentFilter === 'all') {
-        card.setAttribute("draggable", "true");
-        card.dataset.id = app.id; // Sıralama için ID'yi sakla
-
-        card.addEventListener("dragstart", () => {
-          card.classList.add("dragging");
-        });
-
-        card.addEventListener("dragend", () => {
-          card.classList.remove("dragging");
-          saveNewOrder(); // Yeni sırayı kaydet
-        });
+window.deleteGroup = async (groupId) => {
+    const confirm = await showConfirm("Kategori Silinsin mi?", "Bu kategoriyi silmek istediğinize emin misiniz? Projeler 'Genel' kategorisine taşınır.");
+    if (confirm) {
+        ipcRenderer.send("delete-group", groupId);
     }
-    // ----------------------------------------------------
+};
 
-    const iconHtml =
-      app.icon &&
-      (app.icon.includes("/") ||
-        app.icon.includes("\\") ||
-        app.icon.includes(":"))
-        ? `<img src="${app.icon}" class="app-icon-img">`
-        : `<div class="app-icon-emoji">${app.icon || "🚀"}</div>`;
-    
-    const dotDisplay = app.isRunning ? "block" : "none";
-    
-    card.innerHTML = `
-        <div class="app-status-dot" id="status-dot-${app.id}" style="display: ${dotDisplay}"></div>
-        <button class="edit-card-btn" onclick="openEditModal(${app.id})">⚙️</button>
-        <div class="app-icon-container">${iconHtml}</div>
-        <div class="app-name">${app.name}</div>
-    `;
-    
-    card.addEventListener("click", (e) => {
-      if (!e.target.classList.contains("edit-card-btn")) openConsolePage(app);
+function renderAppCards(apps, groups) {
+    if (!appGrid) return;
+    appGrid.innerHTML = "";
+
+    apps.forEach((app, index) => {
+        const card = document.createElement("div");
+        card.className = "app-card";
+        
+        const isRunning = app.isRunning;
+        const group = groups.find(g => g.id == app.groupId);
+        const iconHtml = (app.icon && app.icon.length > 5) 
+            ? `<img src="${app.icon}" style="width:100%; height:100%; object-fit:cover; border-radius:10px;">`
+            : app.icon || "🚀";
+
+        card.innerHTML = `
+            <div class="card-header">
+                <div class="card-icon">${iconHtml}</div>
+                <div class="status-indicator ${isRunning ? 'running' : 'stopped'}">
+                    <i class="fa-solid fa-circle"></i> ${isRunning ? 'AKTİF' : 'DURDU'}
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="category-tag">${group ? group.name : 'Genel'}</div>
+                <h3>${app.name}</h3>
+                <p>${app.type === 'npm' ? 'NPM: ' + app.script : app.path.split(/[\\\/]/).pop()}</p>
+            </div>
+            <div class="card-footer">
+                <button class="mini-btn" onclick="handleCardAction(${app.id}, 'view')">İzle</button>
+                <button class="mini-btn" onclick="handleCardAction(${app.id}, 'edit')">Düzenle</button>
+            </div>
+        `;
+        
+        card.onclick = (e) => {
+            if (!e.target.closest('button')) openConsolePage(app);
+        };
+
+        // Stagger Reveal Effect
+        card.style.opacity = "0";
+        card.style.animation = "none";
+        setTimeout(() => {
+            card.style.animation = "cardFade 0.6s cubic-bezier(0.165, 0.84, 0.44, 1) forwards";
+        }, index * 50);
+
+        appGrid.appendChild(card);
     });
-    
-    appGrid.appendChild(card);
-  });
 }
 
-// --- YARDIMCI FONKSİYONLAR (RENDERER.JS'İN EN ALTINA VEYA renderApps ALTINA EKLE) ---
-
-// 1. Sürükleme sırasında elemanların yer değiştirmesi
-if (appGrid) {
-    appGrid.addEventListener("dragover", (e) => {
-      e.preventDefault(); // Bırakmaya izin ver
-      
-      const afterElement = getDragAfterElement(appGrid, e.clientX, e.clientY);
-      const draggable = document.querySelector(".dragging");
-      
-      if (!draggable) return;
-
-      if (afterElement == null) {
-        appGrid.appendChild(draggable);
-      } else {
-        appGrid.insertBefore(draggable, afterElement);
-      }
-    });
-}
-
-// 2. En yakın elemanı hesaplama (Grid yapısı için matematik)
-function getDragAfterElement(container, x, y) {
-  const draggableElements = [...container.querySelectorAll(".app-card:not(.dragging)")];
-
-  return draggableElements.reduce((closest, child) => {
-    const box = child.getBoundingClientRect();
-    // Grid olduğu için hem X hem Y mesafesine bakıyoruz (Kare uzaklık)
-    const offsetX = x - box.left - box.width / 2;
-    const offsetY = y - box.top - box.height / 2;
-    
-    // Basit mesafe formülü (kök almaya gerek yok, kare yeterli)
-    const dist = offsetX * offsetX + offsetY * offsetY;
-
-    if (dist < closest.dist) {
-      return { offset: dist, element: child };
+window.handleCardAction = (appId, action) => {
+    event.stopPropagation();
+    if (action === 'view') {
+        ipcRenderer.invoke("get-apps").then(apps => {
+            const app = apps.find(a => a.id === appId);
+            if (app) openConsolePage(app);
+        });
     } else {
-      return closest;
+        openEditModal(appId);
     }
-  }, { dist: Number.POSITIVE_INFINITY }).element;
+};
+
+// --- CHART & CONSOLE ---
+
+let cpuChart = null;
+let ramChart = null;
+
+function initChart() {
+    const cpuCtx = document.getElementById('cpuChart').getContext('2d');
+    const ramCtx = document.getElementById('ramChart').getContext('2d');
+    
+    if (cpuChart) cpuChart.destroy();
+    if (ramChart) ramChart.destroy();
+
+    const commonOptions = {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: true, labels: { color: '#94a3b8', font: { size: 10, weight: '600' } } } },
+        scales: { 
+            x: { display: false }, 
+            y: { min: 0, grid: { color: 'rgba(255,255,255,0.03)' }, ticks: { color: '#64748b', font: { size: 10 } } } 
+        },
+        animation: { duration: 400 }
+    };
+
+    cpuChart = new Chart(cpuCtx, {
+        type: 'line',
+        data: {
+            labels: Array(20).fill(''),
+            datasets: [{ 
+                label: 'CPU %', data: Array(20).fill(0), 
+                borderColor: '#7000ff', tension: 0.4, fill: true, 
+                backgroundColor: 'rgba(112,0,255,0.05)', pointRadius: 0 , borderWidth: 2
+            }]
+        },
+        options: commonOptions
+    });
+
+    ramChart = new Chart(ramCtx, {
+        type: 'line',
+        data: {
+            labels: Array(20).fill(''),
+            datasets: [{ 
+                label: 'RAM MB', data: Array(20).fill(0), 
+                borderColor: '#00f2fe', tension: 0.4, fill: true, 
+                backgroundColor: 'rgba(0,242,254,0.05)', pointRadius: 0, borderWidth: 2
+            }]
+        },
+        options: commonOptions // Dynamically scales because no suggestedMax
+    });
 }
 
-// 3. Yeni sırayı Backend'e kaydetme
-async function saveNewOrder() {
-  // Sadece "Hepsi" seçiliyken kaydet, yoksa veri kaybı olur
-  if (currentFilter !== 'all') return;
+async function openConsolePage(app) {
+    currentViewingApp = app;
+    activeAppName.innerText = app.name;
+    activeAppPath.innerText = app.path;
+    currentAppPid = await ipcRenderer.invoke("get-process-pid", app.id);
+    
+    const history = await ipcRenderer.invoke("get-logs", app.id);
+    terminalOutput.innerHTML = `<div>${history.replace(/\n/g, '<br>')}</div>`;
+    
+    switchView("console-view");
+    initChart();
+    updateProcessStatusUI(app.id);
+}
 
-  const currentCards = [...appGrid.querySelectorAll(".app-card")];
-  const newOrderIds = currentCards.map(card => parseInt(card.dataset.id));
-  
-  // Tüm app verilerini çek
-  const allApps = await ipcRenderer.invoke("get-apps");
-  
-  // Yeni ID sırasına göre objeleri diz
-  const reorderedApps = newOrderIds
-    .map(id => allApps.find(a => a.id === id))
-    .filter(a => a !== undefined);
-  
-  // Eksik kalan varsa (filtre hatası vs.) sona ekle
-  if (reorderedApps.length !== allApps.length) {
-      // Güvenlik önlemi: Sayı tutmuyorsa kaydetme
-      console.warn("Siralama hatasi: Liste boyutu uyusmuyor.");
-      return; 
-  }
+// --- IPC EVENTS ---
 
-  // Backend'e gönder
-  ipcRenderer.send("reorder-apps", reorderedApps);
+// ANSI Escape Codes (Terminal Colors) Stripper
+function stripAnsi(text) {
+    return text.replace(/[\u001b\u009b][[()#;?]*(?:[a-zA-Z\d]*(?:;[-a-zA-Z\d]*)*)?\u0007/g, '');
+}
+
+ipcRenderer.on("process-log", (event, { appId, log }) => {
+    if (currentViewingApp && currentViewingApp.id === appId) {
+        const cleanLog = stripAnsi(log).replace(/\n/g, '<br>');
+        terminalOutput.innerHTML += `<div>${cleanLog}</div>`;
+        
+        // Auto-scroll to bottom
+        terminalOutput.scrollTop = terminalOutput.scrollHeight;
+    }
+});
+
+ipcRenderer.on("resource-update", (event, stats) => {
+    if (currentViewingApp && cpuChart && ramChart) {
+        const stat = stats[currentAppPid];
+        if (stat) {
+            const cpu = stat.cpu;
+            const mem = stat.memory / 1024 / 1024;
+            document.getElementById("cpuValue").innerText = cpu.toFixed(1) + "%";
+            document.getElementById("memValue").innerText = mem.toFixed(1) + " MB";
+            
+            cpuChart.data.datasets[0].data.push(cpu);
+            cpuChart.data.datasets[0].data.shift();
+            cpuChart.update('none');
+
+            ramChart.data.datasets[0].data.push(mem);
+            ramChart.data.datasets[0].data.shift();
+            ramChart.update('none');
+        }
+    }
+});
+
+ipcRenderer.on("app-status-change", (event, { appId, isRunning }) => {
+    if (currentViewingApp && currentViewingApp.id === appId) updateProcessStatusUI(appId);
+    loadAndRenderApps();
+});
+
+ipcRenderer.on("update-app-list", () => loadAndRenderApps());
+ipcRenderer.on("update-group-list", () => loadAndRenderApps());
+
+// --- PROCESS CONTROLS ---
+
+async function updateProcessStatusUI(appId) {
+    const isRunning = await ipcRenderer.invoke("get-process-status", appId);
+    toggleProcessBtn.innerHTML = isRunning ? '<i class="fa-solid fa-stop"></i> Durdur' : '<i class="fa-solid fa-play"></i> Başlat';
+    toggleProcessBtn.classList.toggle("stop", isRunning);
+    toggleProcessBtn.classList.toggle("start", !isRunning);
+    liveBadge.style.display = isRunning ? "flex" : "none";
+}
+
+toggleProcessBtn.addEventListener("click", async () => {
+    if (!currentViewingApp) return;
+    const isRunning = await ipcRenderer.invoke("get-process-status", currentViewingApp.id);
+    if (isRunning) ipcRenderer.send("stop-process", currentViewingApp.id);
+    else ipcRenderer.send("start-process", currentViewingApp);
+});
+
+// --- MODALS & FORMS ---
+
+function populateIconPool() {
+    const pool = document.getElementById("iconPool");
+    const icons = ["🚀", "💻", "🌐", "🎮", "🔥", "🤖", "⚡", "🛠️", "📦", "🖥️", "🔋", "🔑"];
+    pool.innerHTML = "";
+    icons.forEach(icon => {
+        const div = document.createElement("div");
+        div.style.cssText = "font-size:24px; padding:8px; cursor:pointer; text-align:center; border-radius:8px; hover:background:rgba(255,255,255,0.05);";
+        div.innerText = icon;
+        div.onclick = () => {
+            currentSelectedIcon = icon;
+            document.querySelectorAll("#iconPool div").forEach(d => d.style.background = "");
+            div.style.background = "var(--glass-border)";
+        };
+        pool.appendChild(div);
+    });
 }
 
 window.openEditModal = async (appId) => {
-  const apps = await ipcRenderer.invoke("get-apps");
-  const app = apps.find((a) => a.id === appId);
-  if (!app) return;
-  currentEditingAppId = appId;
-  if (editNameInput) editNameInput.value = app.name;
-  if (editPathInput) editPathInput.value = app.path;
-  if (editAutoStartInput) editAutoStartInput.checked = !!app.autoStart;
-  currentSelectedIcon = app.icon || "🚀";
-  if (selectedIconDisplay)
-    selectedIconDisplay.innerText =
-      currentSelectedIcon.length > 5 ? "Resim Dosyası" : currentSelectedIcon;
-  
-  // Highlight currently selected icon element
-  document.querySelectorAll(".preset-icon").forEach((el) => {
-    if (el.innerText === currentSelectedIcon) el.classList.add("selected");
-    else el.classList.remove("selected");
-  });
+    const apps = await ipcRenderer.invoke("get-apps");
+    const app = apps.find(a => a.id === appId);
+    if (!app) return;
+    currentEditingAppId = appId;
+    document.getElementById("editName").value = app.name;
+    document.getElementById("editPath").value = app.path;
+    document.getElementById("editAutoStart").checked = !!app.autoStart;
+    document.getElementById("editGroup").value = app.groupId || "";
+    currentSelectedIcon = app.icon || "🚀";
 
-  if (editModal) editModal.style.display = "flex";
-};
-window.selectIcon = (icon) => {
-  currentSelectedIcon = icon;
-  if (selectedIconDisplay) selectedIconDisplay.innerText = icon;
-
-  // Visual feedback for selection
-  document.querySelectorAll(".preset-icon").forEach((el) => {
-    if (el.innerText === icon) el.classList.add("selected");
-    else el.classList.remove("selected");
-  });
-};
-const uploadImgBtn = document.getElementById("uploadImgBtn");
-if (uploadImgBtn)
-  uploadImgBtn.addEventListener("click", async () => {
-    const imgPath = await ipcRenderer.invoke("select-image");
-    if (imgPath) {
-      currentSelectedIcon = imgPath;
-      if (selectedIconDisplay) selectedIconDisplay.innerText = "Resim Dosyası";
-    }
-  });
-const changePathBtn = document.getElementById("changePathBtn");
-if (changePathBtn)
-  changePathBtn.addEventListener("click", async () => {
-    const newPath = await ipcRenderer.invoke("select-file");
-    if (newPath && editPathInput) editPathInput.value = newPath;
-  });
-const saveEditBtn = document.getElementById("saveEditBtn");
-if (saveEditBtn)
-  saveEditBtn.addEventListener("click", () => {
-    ipcRenderer.send("edit-app", {
-      id: currentEditingAppId,
-      name: editNameInput.value,
-      path: editPathInput.value,
-      icon: currentSelectedIcon,
-      autoStart: editAutoStartInput.checked,
-    });
-  });
-const deleteAppBtn = document.getElementById("deleteAppBtn");
-if (deleteAppBtn)
-  deleteAppBtn.addEventListener("click", () => {
-    if (editModal) editModal.style.display = "none";
-    appToDeleteId = currentEditingAppId;
-    if (deleteModal) deleteModal.style.display = "flex";
-  });
-if (confirmDeleteBtn)
-  confirmDeleteBtn.addEventListener("click", () => {
-    if (appToDeleteId) {
-      ipcRenderer.send("delete-app", appToDeleteId);
-      appToDeleteId = null;
-      if (deleteModal) deleteModal.style.display = "none";
-    }
-  });
-if (cancelDeleteBtn)
-  cancelDeleteBtn.addEventListener("click", () => {
-    appToDeleteId = null;
-    if (deleteModal) deleteModal.style.display = "none";
-  });
-const closeModalBtn = document.getElementById("closeModalBtn");
-if (closeModalBtn)
-  closeModalBtn.addEventListener("click", () => {
-    if (editModal) editModal.style.display = "none";
-  });
-const cancelEditBtn = document.getElementById("cancelEditBtn");
-if (cancelEditBtn)
-  cancelEditBtn.addEventListener("click", () => {
-    if (editModal) editModal.style.display = "none";
-  });
-
-// --- KONSOL SAYFASI ---
-async function openConsolePage(app) {
-  currentViewingApp = app;
-  if (activeAppName) activeAppName.innerText = app.name;
-  if (activeAppPath) {
-    activeAppPath.innerText = app.path;
-    activeAppPath.title = app.path;
-  }
-  if (appLogs[app.id]) terminalOutput.innerText = appLogs[app.id];
-  else {
-    terminalOutput.innerText = `> Konsol hazır: ${app.name}\n> Başlatmak için butona basın.\n\n`;
-    appLogs[app.id] = terminalOutput.innerText;
-  }
-  setTimeout(() => {
-    if (terminalOutput) terminalOutput.scrollTop = terminalOutput.scrollHeight;
-  }, 50);
-  if (dashboardView) dashboardView.style.display = "none";
-  if (consoleView) consoleView.style.display = "flex";
-
-  // Detay sayfasına girildiğinde durumu kontrol et
-  await updateStatusUI(app.id);
-  const pid = await ipcRenderer.invoke("get-process-pid", app.id);
-  currentAppPid = pid || null;
-  if (statsContainer) statsContainer.style.display = pid ? "flex" : "none";
-}
-const backBtn = document.getElementById("backBtn");
-if (backBtn)
-  backBtn.addEventListener("click", () => {
-    if (consoleView) consoleView.style.display = "none";
-    if (dashboardView) dashboardView.style.display = "block";
-    currentViewingApp = null;
-    currentAppPid = null;
-    if (statsContainer) statsContainer.style.display = "none";
-    loadAndRenderApps(); // Listeyi yenile
-  });
-
-// 3.7 - Otomatik Başlatma Yöneticisi Mantığı
-
-const openAutoStartModal = async () => {
-  const apps = await ipcRenderer.invoke("get-apps");
-  autoStartListContainer.innerHTML = "";
-  if (apps.length === 0) {
-    autoStartListContainer.innerHTML = `<div style="padding:15px; text-align:center; color:#666;">Hiç proje yok.</div>`;
-  } else {
-    apps.forEach((app) => {
-      const row = document.createElement("div");
-      row.style.cssText =
-        "display: flex; align-items: center; justify-content: space-between; padding: 10px; border-bottom: 1px solid #222;";
-      const isChecked = app.autoStart ? "checked" : "";
-      const iconShow = app.icon && app.icon.length < 5 ? app.icon : "🚀";
-      row.innerHTML = `
-                  <div style="display:flex; align-items:center; gap:10px;">
-                      <span style="font-size:18px;">${iconShow}</span>
-                      <span style="font-size:14px; font-weight:500;">${app.name}</span>
-                  </div>
-                  <label class="switch" style="display:flex; align-items:center;">
-                      <input type="checkbox" ${isChecked} onchange="toggleAutoStartFromList(${app.id}, this.checked)">
-                      <span class="slider" style="position:relative; width:34px; height:20px; display:inline-block; margin-right:0;"></span>
-                  </label>
-              `;
-      autoStartListContainer.appendChild(row);
-    });
-  }
-  if (autoStartModal) autoStartModal.style.display = "flex";
-};
-
-if (openAutoStartManagerBtn) {
-  openAutoStartManagerBtn.addEventListener("click", openAutoStartModal);
-}
-
-window.toggleAutoStartFromList = (appId, isEnabled) => {
-
-
-  ipcRenderer.send("update-auto-start", { appId, enabled: isEnabled });
-};
-if (closeAutoStartModalBtn)
-  closeAutoStartModalBtn.addEventListener(
-    "click",
-    () => (autoStartModal.style.display = "none")
-  );
-if (closeAutoStartBtn)
-  closeAutoStartBtn.addEventListener(
-    "click",
-    () => (autoStartModal.style.display = "none")
-  );
-
-ipcRenderer.on("process-log", (event, { appId, log }) => {
-  if (!appLogs[appId]) appLogs[appId] = "";
-  appLogs[appId] += log;
-  if (currentViewingApp && currentViewingApp.id === appId && terminalOutput) {
-    terminalOutput.innerText += log;
-    terminalOutput.scrollTop = terminalOutput.scrollHeight;
-  }
-});
-ipcRenderer.on("resource-update", (event, stats) => {
-  if (
-    consoleView &&
-    consoleView.style.display !== "none" &&
-    currentAppPid &&
-    stats[currentAppPid]
-  ) {
-    if (statsContainer) statsContainer.style.display = "flex";
-    if (cpuValue)
-      cpuValue.innerText = stats[currentAppPid].cpu.toFixed(1) + "%";
-    if (memValue)
-      memValue.innerText =
-        (stats[currentAppPid].memory / 1024 / 1024).toFixed(1) + " MB";
-  }
-});
-ipcRenderer.on("process-started", (event, { appId, pid }) => {
-  if (currentViewingApp && currentViewingApp.id === appId) currentAppPid = pid;
-});
-ipcRenderer.on("app-status-change", async (event, { appId, isRunning }) => {
-  if (dashboardView && dashboardView.style.display !== "none")
-    await loadAndRenderApps();
-  else {
-    const dot = document.getElementById(`status-dot-${appId}`);
-    if (dot) dot.style.display = isRunning ? "block" : "none";
-  }
-  if (currentViewingApp && currentViewingApp.id === appId) {
-    await updateStatusUI(appId);
-    if (isRunning) {
-      const pid = await ipcRenderer.invoke("get-process-pid", appId);
-      if (pid) {
-        currentAppPid = pid;
-        if (statsContainer) statsContainer.style.display = "flex";
-      }
+    // NPM Script Support
+    const scriptGroup = document.getElementById("editNpmScriptGroup");
+    const scriptSelect = document.getElementById("editNpmScript");
+    
+    if (app.type === 'npm') {
+        scriptGroup.style.display = "block";
+        const scripts = await ipcRenderer.invoke("read-package-scripts", app.path);
+        scriptSelect.innerHTML = "";
+        if (scripts) {
+            Object.keys(scripts).forEach(s => {
+                const opt = document.createElement("option");
+                opt.value = opt.innerText = s;
+                if (s === app.script) opt.selected = true;
+                scriptSelect.appendChild(opt);
+            });
+        }
     } else {
-      currentAppPid = null;
-      if (statsContainer) statsContainer.style.display = "none";
+        scriptGroup.style.display = "none";
     }
-  }
-});
-ipcRenderer.on("version-info", (event, version) => {
-  if (currentVerText) currentVerText.innerText = "v" + version;
+
+    editModal.style.display = "flex";
+};
+
+document.getElementById("saveEditBtn")?.addEventListener("click", () => {
+    const editData = {
+        id: currentEditingAppId,
+        name: document.getElementById("editName").value,
+        path: document.getElementById("editPath").value,
+        groupId: parseInt(document.getElementById("editGroup").value) || null,
+        icon: currentSelectedIcon,
+        autoStart: document.getElementById("editAutoStart").checked
+    };
+
+    // If NPM, add script
+    const scriptSelect = document.getElementById("editNpmScript");
+    if (document.getElementById("editNpmScriptGroup").style.display === "block") {
+        editData.script = scriptSelect.value;
+    }
+
+    ipcRenderer.send("edit-app", editData);
+    editModal.style.display = "none";
 });
 
-ipcRenderer.on("update-status", (event, msg) => {
-  if (updateStatusMsg) updateStatusMsg.innerText = msg;
+document.getElementById("changePathBtn")?.addEventListener("click", async () => {
+    const path = await ipcRenderer.invoke("select-folder");
+    if (path) {
+        document.getElementById("editPath").value = path;
+        // If NPM, refresh scripts
+        const scriptGroup = document.getElementById("editNpmScriptGroup");
+        if (scriptGroup.style.display === "block") {
+            const scripts = await ipcRenderer.invoke("read-package-scripts", path);
+            const scriptSelect = document.getElementById("editNpmScript");
+            scriptSelect.innerHTML = "";
+            if (scripts) {
+                Object.keys(scripts).forEach(s => {
+                    const opt = document.createElement("option");
+                    opt.value = opt.innerText = s;
+                    scriptSelect.appendChild(opt);
+                });
+            }
+        }
+    }
 });
 
-async function updateStatusUI(appId) {
-  const isRunning = await ipcRenderer.invoke("get-process-status", appId);
-  if (isRunning) {
-    if (toggleProcessBtn) {
-      toggleProcessBtn.innerHTML = "Durdur 🟥";
-      toggleProcessBtn.className = "action-btn stop";
-      toggleProcessBtn.disabled = false;
+document.getElementById("deleteAppBtn")?.addEventListener("click", async () => {
+    const confirm = await showConfirm("Projeyi Sil", "Bu projeyi listeden kaldırmak istediğinize emin misiniz?");
+    if (confirm) {
+        ipcRenderer.send("delete-app", currentEditingAppId);
+        editModal.style.display = "none";
     }
-    if (liveBadge) liveBadge.style.display = "flex";
-  } else {
-    if (toggleProcessBtn) {
-      toggleProcessBtn.innerHTML = "Başlat ▶";
-      toggleProcessBtn.className = "action-btn start";
-      toggleProcessBtn.disabled = false;
+});
+
+// Select Handlers
+document.getElementById("selectJsFileBtn")?.addEventListener("click", async () => {
+    const path = await ipcRenderer.invoke("select-file");
+    if (path) ipcRenderer.send("add-app", { id: Date.now(), name: path.split(/[\\\/]/).pop(), path, icon: "🚀", type: "js" });
+    addChoiceModal.style.display = "none";
+});
+
+document.getElementById("selectNpmScriptBtn")?.addEventListener("click", async () => {
+    const path = await ipcRenderer.invoke("select-folder");
+    if (path) {
+        const scripts = await ipcRenderer.invoke("read-package-scripts", path);
+        if (scripts) {
+            const list = document.getElementById("npmScriptsList");
+            list.innerHTML = "";
+            Object.keys(scripts).forEach(s => {
+                const b = document.createElement("button");
+                b.className = "btn-secondary";
+                b.style.width = "100%";
+                b.style.marginBottom = "5px";
+                b.innerText = s;
+                b.onclick = () => {
+                    ipcRenderer.send("add-app", { id: Date.now(), name: s, path, icon: "📦", type: "npm", script: s });
+                    npmScriptModal.style.display = "none";
+                    addChoiceModal.style.display = "none";
+                };
+                list.appendChild(b);
+            });
+            npmScriptModal.style.display = "flex";
+        }
     }
-    if (liveBadge) liveBadge.style.display = "none";
-  }
-}
-if (toggleProcessBtn)
-  toggleProcessBtn.addEventListener("click", async () => {
-    if (!currentViewingApp) return;
-    const isRunning = await ipcRenderer.invoke(
-      "get-process-status",
-      currentViewingApp.id
-    );
-    toggleProcessBtn.disabled = true;
-    if (isRunning) {
-      ipcRenderer.send("stop-process", currentViewingApp.id);
-      toggleProcessBtn.innerText = "Durduruluyor...";
-      if (statsContainer) statsContainer.style.display = "none";
-      currentAppPid = null;
+});
+
+// --- ADVANCED ---
+window.openEnvEditor = async () => {
+    const content = await ipcRenderer.invoke("read-env", currentViewingApp.path);
+    if (content !== null) {
+        document.getElementById("envContent").value = content;
+        document.getElementById("envModal").style.display = "flex";
     } else {
-      ipcRenderer.send("start-process", currentViewingApp);
-      toggleProcessBtn.innerText = "Başlatılıyor...";
+        showAlert("Dosya Bulunamadı", ".env dosyası mevcut değil.", "warning");
     }
-    setTimeout(() => {
-      if (currentViewingApp) updateStatusUI(currentViewingApp.id);
-    }, 500);
-  });
+};
+window.saveEnvContent = async () => {
+    const res = await ipcRenderer.invoke("save-env", { folderPath: currentViewingApp.path, content: document.getElementById("envContent").value });
+    if (res.success) document.getElementById("envModal").style.display = "none";
+};
+window.runMaintenance = (cmd) => ipcRenderer.send("run-maintenance", { appId: currentViewingApp.id, appPath: currentViewingApp.path, command: cmd });
+window.openExternalTerminal = () => ipcRenderer.send("open-terminal", currentViewingApp.path);
 
-if (scanGhostsBtn) {
-  scanGhostsBtn.addEventListener("click", async () => {
-    const icon = scanGhostsBtn.querySelector("svg");
-    if (icon) icon.classList.add("spinning");
-    try {
-      const ghosts = await ipcRenderer.invoke("scan-ghost-processes");
-      if (icon) setTimeout(() => (icon.style.transform = "none"), 1000);
-      showScanResults(ghosts);
-    } catch (err) {
-      showCustomAlert("Hata: " + err, "Hata");
-    } finally {
-      if (icon) icon.classList.remove("spinning");
-    }
-  });
+async function openSettings() {
+    const s = await ipcRenderer.invoke("get-settings");
+    document.getElementById("winAutoStartToggle").checked = s.winAutoStart;
+    document.getElementById("settingStartMinimized").checked = s.startMinimized;
+    document.getElementById("autoUpdateToggle").checked = s.autoUpdate;
+    document.getElementById("currentVerText").innerText = "Sürüm: v1.1.0";
+    
+    // Highlight Active Theme
+    const currentTheme = s.theme || 'cyber-amethyst';
+    document.querySelectorAll(".theme-dot").forEach(dot => {
+        dot.classList.toggle("active", dot.onclick.toString().includes(currentTheme));
+    });
+
+    settingsModal.style.display = "flex";
 }
+
+window.setTheme = (name, save = true) => {
+    document.documentElement.setAttribute('data-theme', name);
+    
+    // UI Update (Dots)
+    document.querySelectorAll(".theme-dot").forEach(dot => {
+        dot.classList.remove("active");
+        if (dot.onclick.toString().includes(name)) dot.classList.add("active");
+    });
+
+    if (save) {
+        ipcRenderer.send("update-settings", { theme: name });
+    }
+};
+
 function showScanResults(ghosts) {
-  if (!scanResultsList) return;
-  scanResultsList.innerHTML = "";
-  if (ghosts.length === 0)
-    scanResultsList.innerHTML = `<div style="text-align:center; padding:20px; color:#666;">Bulunamadı.</div>`;
-  else {
-    ghosts.forEach((ghost) => {
-      const item = document.createElement("div");
-      item.className = "scan-item";
-      item.innerHTML = `
-        <div class="scan-info">
-          <div class="scan-name">👻 ${ghost.path.replace(/^.*[\\\/]/, "")}</div>
-          <div class="scan-path" title="${ghost.path}">${ghost.path}</div>
-          <div class="scan-meta">
-            <span>PID: ${ghost.pid}</span>
-            <span>PORT: ${ghost.port}</span>
-          </div>
-        </div>
-        <div style="display:flex; gap:8px;">
-          <button class="btn-add-ghost" style="background:var(--primary); color:white; border:none; padding:8px 15px; border-radius:5px; cursor:pointer; font-weight:bold; font-size:12px;">EKLE</button>
-          <button class="btn-kill-ghost" style="background:#ef4444; color:white; border:none; padding:8px 15px; border-radius:5px; cursor:pointer; font-weight:bold; font-size:12px;">DURDUR</button>
-        </div>`;
-      
-      item.querySelector(".btn-add-ghost").addEventListener("click", (e) => {
-        addGhostApp(ghost);
-        e.target.innerText = "EKLENDİ";
-        e.target.disabled = true;
-        e.target.style.background = "#555";
-      });
+    const list = document.getElementById("scanResultsList");
+    const modal = document.getElementById("scanModal");
 
-      item.querySelector(".btn-kill-ghost").addEventListener("click", (e) => {
-        ipcRenderer.send("kill-ghost-process", ghost.pid);
-        e.target.innerText = "DURDURULDU";
-        e.target.disabled = true;
-        e.target.style.background = "#555";
-      });
-      scanResultsList.appendChild(item);
+    list.innerHTML = "";
+
+    if (!ghosts || ghosts.length === 0) {
+        list.innerHTML = `
+            <div style="text-align:center; padding: 30px; color: var(--text-dim);">
+                <i class="fa-solid fa-circle-check" style="font-size:32px; color:#10b981; margin-bottom:12px; display:block;"></i>
+                <span>Dış süreç bulunamadı. Sistem temiz.</span>
+            </div>`;
+    } else {
+        ghosts.forEach(g => {
+            const row = document.createElement("div");
+            row.style.cssText = "display:flex; justify-content:space-between; align-items:center; padding:12px 16px; background:var(--card-bg); border:1px solid var(--glass-border); border-radius:12px; margin-bottom:10px; gap:10px;";
+            row.innerHTML = `
+                <div style="flex:1; min-width:0;">
+                    <div style="font-weight:700; font-size:13px; color:var(--text-primary); margin-bottom:4px;">${g.name}</div>
+                    <div style="font-size:11px; color:var(--text-dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${g.path}</div>
+                    <div style="font-size:11px; color:var(--accent-purple); margin-top:2px;">${g.memory}</div>
+                </div>
+            <div style="display:flex; gap:8px;">
+                <button onclick="addGhost('${g.name}', '${g.path.replace(/\\/g, '\\\\')}', this)" class="btn-primary" style="padding:8px 14px; font-size:12px; white-space:nowrap; box-shadow:none;">
+                    <i class="fa-solid fa-plus"></i> Ekle
+                </button>
+                <button onclick="killGhost(${g.pid}, this)" class="btn-delete" style="padding:8px 14px; font-size:12px; white-space:nowrap;">
+                    <i class="fa-solid fa-skull"></i> Sonlandır
+                </button>
+            </div>`;
+            list.appendChild(row);
+        });
+    }
+
+    modal.style.display = "flex";
+}
+
+window.addGhost = (name, path, btn) => {
+    // Port bilgisini temizleyerek sadece script adını alalım
+    let cleanName = name.includes(" - ") ? name.split(" - ").pop() : name;
+    ipcRenderer.send("add-app", { 
+        id: Date.now(), 
+        name: cleanName, 
+        path: path, 
+        icon: "👻", 
+        type: "js" 
     });
-  }
-  if (scanModal) scanModal.style.display = "flex";
-}
-
-function addGhostApp(g) {
-  ipcRenderer.send("add-app", {
-    id: Date.now(),
-    name: g.path.replace(/^.*[\\\/]/, ""),
-    path: g.path,
-    icon: "👻",
-    autoStart: false,
-  });
-}
-if (closeScanModalBtn)
-  closeScanModalBtn.addEventListener("click", () => {
-    if (scanModal) scanModal.style.display = "none";
-  });
-if (closeScanBtn)
-  closeScanBtn.addEventListener("click", () => {
-    if (scanModal) scanModal.style.display = "none";
-  });
-// renderer.js sonuna ekle
-
-// Settings handling moved from bottom to central logic area
-const hideSettings = () => {
-  if (settingsModal) settingsModal.style.display = "none";
+    btn.innerHTML = '<i class="fa-solid fa-check"></i> Eklendi';
+    btn.disabled = true;
+    btn.style.opacity = "0.7";
 };
 
-if (openSettingsBtn) {
-  openSettingsBtn.addEventListener("click", async () => {
-    const settings = await ipcRenderer.invoke("get-settings");
-    if (settingStartMinimized) settingStartMinimized.checked = !!settings.startMinimized;
-    if (winAutoStartToggle) winAutoStartToggle.checked = !!settings.winAutoStart;
-    if (autoUpdateToggle) autoUpdateToggle.checked = !!settings.autoUpdate;
-    if (settingsModal) settingsModal.style.display = "flex";
-  });
-}
+window.killGhost = (pid, btn) => {
+    ipcRenderer.send("kill-ghost-process", pid);
+    btn.closest("div[style]").style.opacity = "0.4";
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa-solid fa-check"></i> Sonlandırıldı';
+};
 
-if (closeSettingsModalBtn) closeSettingsModalBtn.addEventListener("click", hideSettings);
-if (closeSettingsBtn) closeSettingsBtn.addEventListener("click", hideSettings);
-
-if (settingStartMinimized) {
-  settingStartMinimized.addEventListener("change", (e) => {
-    ipcRenderer.send("update-settings", { startMinimized: e.target.checked });
-  });
-}
-
-if (winAutoStartToggle) {
-  winAutoStartToggle.addEventListener("change", (e) => {
-    ipcRenderer.send("update-settings", { windowsStart: e.target.checked });
-  });
-}
-
-if (autoUpdateToggle) {
-  autoUpdateToggle.addEventListener("change", (e) => {
-    ipcRenderer.send("update-settings", { autoUpdate: e.target.checked });
-  });
-}
-
-if (manualCheckUpdateBtn) {
-  manualCheckUpdateBtn.addEventListener("click", () => {
-    if (updateStatusMsg) updateStatusMsg.innerText = "Denetleniyor...";
-    ipcRenderer.send("check-for-updates");
-  });
-}
-
-const whatsNewModal = document.getElementById("whatsNewModal");
-const whatsNewContent = document.getElementById("whatsNewContent");
-const whatsNewTitle = document.getElementById("whatsNewTitle");
-const closeWhatsNewModalBtn = document.getElementById("closeWhatsNewModalBtn");
-const closeWhatsNewBtn = document.getElementById("closeWhatsNewBtn");
-
-ipcRenderer.on("show-whats-new", async (event, version) => {
-  whatsNewTitle.innerText = `🚀 Sürüm v${version} Yenilikleri`;
-  whatsNewModal.style.display = "flex";
-
-  try {
-    // GitHub API kullanarak son release notlarını çekiyoruz
-    const response = await fetch("https://api.github.com/repos/KeremZayim/KZ-Process-Manager/releases/latest");
-    const data = await response.json();
-
-    if (data.body) {
-      whatsNewContent.innerText = data.body;
-    } else {
-      whatsNewContent.innerText = "Bu sürüm için sürüm notu bulunamadı.";
+window.clearAllLogs = async () => {
+    const confirm = await showConfirm("Günlükleri Temizle", "Tüm uygulama loglarını kalıcı olarak silmek istediğinize emin misiniz?");
+    if (confirm) {
+        const res = await ipcRenderer.invoke("clear-all-logs");
+        if (res.success) {
+            if (terminalOutput) terminalOutput.innerHTML = '<div style="color:var(--success)">[SİSTEM] Tüm loglar başarıyla temizlendi.</div>';
+            showAlert("Başarılı", "Tüm loglar temizlendi.", "success");
+        } else {
+            showAlert("Hata", "Log temizleme sırasında bir hata oluştu: " + res.error, "error");
+        }
     }
-  } catch (err) {
-    whatsNewContent.innerText = "Sürüm notları yüklenirken bir hata oluştu, ancak uygulamanız başarıyla güncellendi!";
-    console.error("GitHub API Hatası:", err);
-  }
+};
+
+// Custom UI Dialog Helpers
+window.showAlert = (title, message, type = 'warning') => {
+    return new Promise((resolve) => {
+        const modal = document.getElementById("promptModal");
+        const titleEl = document.getElementById("promptTitle");
+        const msgEl = document.getElementById("promptMessage");
+        const iconEl = document.getElementById("promptIcon");
+        const confirmBtn = document.getElementById("promptConfirmBtn");
+        const cancelBtn = document.getElementById("promptCancelBtn");
+
+        titleEl.innerText = title;
+        msgEl.innerText = message;
+        cancelBtn.style.display = "none";
+        confirmBtn.innerText = "Anladım";
+
+        // Set Icon & Color
+        let icon = '<i class="fa-solid fa-circle-exclamation" style="color: var(--warning);"></i>';
+        if (type === 'success') icon = '<i class="fa-solid fa-circle-check" style="color: var(--success);"></i>';
+        if (type === 'error') icon = '<i class="fa-solid fa-circle-xmark" style="color: var(--danger);"></i>';
+        iconEl.innerHTML = icon;
+
+        modal.style.display = "flex";
+
+        const handleClose = () => {
+            modal.style.display = "none";
+            confirmBtn.removeEventListener("click", handleClose);
+            resolve();
+        };
+        confirmBtn.addEventListener("click", handleClose);
+    });
+};
+
+window.showConfirm = (title, message) => {
+    return new Promise((resolve) => {
+        const modal = document.getElementById("promptModal");
+        const titleEl = document.getElementById("promptTitle");
+        const msgEl = document.getElementById("promptMessage");
+        const iconEl = document.getElementById("promptIcon");
+        const confirmBtn = document.getElementById("promptConfirmBtn");
+        const cancelBtn = document.getElementById("promptCancelBtn");
+
+        titleEl.innerText = title;
+        msgEl.innerText = message;
+        cancelBtn.style.display = "block";
+        confirmBtn.innerText = "Onayla";
+        iconEl.innerHTML = '<i class="fa-solid fa-circle-question" style="color: var(--accent-purple);"></i>';
+
+        modal.style.display = "flex";
+
+        const onConfirm = () => {
+            modal.style.display = "none";
+            cleanup();
+            resolve(true);
+        };
+        const onCancel = () => {
+            modal.style.display = "none";
+            cleanup();
+            resolve(false);
+        };
+        const cleanup = () => {
+            confirmBtn.removeEventListener("click", onConfirm);
+            cancelBtn.removeEventListener("click", onCancel);
+        };
+
+        confirmBtn.addEventListener("click", onConfirm);
+        cancelBtn.addEventListener("click", onCancel);
+    });
+};
+
+// Handle Exit Confirmation from Main Process
+ipcRenderer.on("request-exit-confirmation", async (event, activeCount) => {
+    const confirm = await showConfirm(
+        "Açık Projeler Var!", 
+        `Arka planda hala çalışmakta olan ${activeCount} projeniz var. Yine de çıkmak istiyor musunuz?`
+    );
+    if (confirm) {
+        ipcRenderer.send("confirm-exit");
+    }
 });
-
-const hideWhatsNew = () => whatsNewModal.style.display = "none";
-if (closeWhatsNewModalBtn) closeWhatsNewModalBtn.addEventListener("click", hideWhatsNew);
-if (closeWhatsNewBtn) closeWhatsNewBtn.addEventListener("click", hideWhatsNew);
-
+async function openAutoStartManager() {
+    const apps = await ipcRenderer.invoke("get-apps");
+    const container = document.getElementById("autoStartListContainer");
+    if (!container) return;
+    container.innerHTML = "";
+    apps.forEach(app => {
+        const d = document.createElement("div");
+        d.style.display = "flex"; d.style.justifyContent = "space-between"; d.style.padding = "10px";
+        d.innerHTML = `<span>${app.name}</span> <label class="switch"><input type="checkbox" ${app.autoStart ? 'checked' : ''} onchange="ipcRenderer.send('update-auto-start', {appId:${app.id}, enabled:this.checked})"><span class="slider"></span></label>`;
+        container.appendChild(d);
+    });
+    autoStartModal.style.display = "flex";
+}

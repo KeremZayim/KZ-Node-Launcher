@@ -1,3 +1,49 @@
+# Release Notes / Sürüm Notları - v1.1.0
+
+## [EN] English
+### 🚀 New Features
+- **Custom Dialog System**: Native Windows/Browser alert and confirm boxes have been replaced with premium, in-app themed modals.
+- **Enhanced Ghost Process Management**:
+    - **Quick Add**: You can now add "ghost" processes directly to your project list with a single click.
+    - **Smart Filtering**: Projects already added to the launcher (including those started via `npm`) are now automatically filtered out from the ghost scan.
+- **Dashboard Sorting**: Added a new sorting menu next to the filter button. You can now sort your projects by **Status (Online first)**, **Name (A-Z)**, and **Name (Z-A)**.
+- **Log Management & Tools**:
+    - **Clear All Logs**: Added a "Clear All Logs" tool to permanently delete historical log files and free up space.
+    - **Improved Terminal**: Added ANSI color stripping for cleaner logs and a more reliable auto-scroll mechanism.
+
+### 🎨 UI & UX Improvements
+- **Sidebar Footer & GitHub Link**: Added a dedicated GitHub profile link to the sidebar with modern hover effects.
+- **Modal Aesthetics**: Adjusted the opacity of modal overlays and cards for better legibility and a more refined glassmorphism look.
+- **Update Check**: Restored the "Check for Updates" button to the settings menu for manual control.
+
+### 🐛 Bug Fixes
+- **NPM Ghost Filtering**: Resolved an issue where npm-started processes were still appearing as ghost processes despite being registered.
+- **Sorting Direction**: Fixed the "By Status" sort order to ensure active processes always appear at the very top.
+
+---
+
+## [TR] Türkçe
+### 🚀 Yeni Özellikler
+- **Özel Diyalog Sistemi**: Standart Windows/Browser uyarı ve onay kutuları (alert/confirm), uygulamanın kendi temasına uygun premium modallarla değiştirildi.
+- **Gelişmiş Dış Süreç Yönetimi**:
+    - **Hızlı Ekleme**: Artık bulunan "ghost" süreçleri tek tıkla uygulama listenize dahil edebilirsiniz.
+    - **Akıllı Filtreleme**: Launcher üzerinde ekli olan projeler (npm ile başlatılanlar dahil) artık dış süreç taramasında görünmez.
+- **Dashboard Sıralama**: Filtreleme butonunun yanına yeni bir sıralama menüsü eklendi. Projeleri **Duruma Göre (Aktif Üstte)**, **İsim (A-Z)** ve **İsim (Z-A)** şeklinde dizebilirsiniz.
+- **Log Yönetimi ve Araçlar**:
+    - **Log Temizliği**: Tüm geçmiş log dosyalarını tek tıkla silmenizi sağlayan "Logları Temizle" özelliği eklendi.
+    - **İyileştirilmiş Terminal**: Loglardaki renk kodları temizlendi ve otomatik kaydırma özelliği daha kararlı hale getirildi.
+
+### 🎨 UI & UX Geliştirmeleri
+- **Sidebar Footer ve GitHub Linki**: Sidebar'ın altına modern hover efektli doğrudan GitHub profil bağlantısı eklendi.
+- **Modal Estetiği**: Açılır pencerelerin arka plan ve kart opaklıkları, okunabilirliği artıracak şekilde (Glassmorphism dengesi) optimize edildi.
+- **Güncelleme Kontrolü**: "Güncellemeleri Denetle" butonu ayarlar menüsündeki yerine geri getirildi.
+
+### 🐛 Hata Düzeltmeleri
+- **NPM Filtreleme Hatası**: NPM üzerinden başlatılan süreçlerin, ekli oldukları halde dış süreç listesinde görünmesi hatası giderildi.
+- **Sıralama Yönü**: "Duruma Göre" sıralamasında aktiflerin listenin en sonuna gitme sorunu düzeltilerek en başa sabitlendi.
+
+---
+
 # Release Notes / Sürüm Notları - v1.0.3
 
 ## [EN] English

@@ -1,586 +1,369 @@
 <!DOCTYPE html>
-<html lang="tr">
-  <head>
-    <meta charset="UTF-8" />
-    <title>KZ | Node Launcher</title>
-    <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap"
-      rel="stylesheet"
-    />
-  </head>
-  <link rel="stylesheet" href="src/styles.css" />
-  <body>
+<html lang="tr" data-theme="cyber-amethyst">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KZ | Node Launcher Advanced</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="src/styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div id="mouse-glow"></div>
+    
+    <!-- Title Bar -->
     <div id="title-bar">
-      <div
-        style="
-          font-size: 12px;
-          color: #888;
-          font-weight: 600;
-          letter-spacing: 1px;
-        "
-      >
-        ⚡ KZ | NODE LAUNCHER
-      </div>
-      <div class="window-controls">
-        <button class="control-btn" id="minBtn">─</button>
-        <button class="control-btn" id="maxBtn">□</button>
-        <button class="control-btn close" id="closeBtn">✕</button>
-      </div>
+        <div class="logo">
+            <span style="background: var(--accent-gradient); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-weight: 900; letter-spacing: 2px;">KZ NODE LAUNCHER</span>
+        </div>
+        <div class="window-controls">
+            <button class="control-btn" id="minBtn"><i class="fa-solid fa-minus"></i></button>
+            <button class="control-btn" id="maxBtn"><i class="fa-regular fa-square"></i></button>
+            <button class="control-btn close" id="closeBtn"><i class="fa-solid fa-xmark"></i></button>
+        </div>
     </div>
 
-    <div id="loading-screen">
-      <div class="loader"></div>
-      <div class="loading-text">SİSTEM BAŞLATILIYOR...</div>
+    <!-- Main Container -->
+    <div class="app-container">
+        <!-- Sidebar Navigation -->
+        <aside id="sidebar">
+            <nav class="sidebar-nav">
+                <div class="nav-item active" data-view="dashboard-view">
+                    <i class="fa-solid fa-shapes"></i>
+                    <span>Dashboard</span>
+                </div>
+                <div class="nav-item" data-view="groups-view">
+                    <i class="fa-solid fa-folder-tree"></i>
+                    <span>Kategoriler</span>
+                </div>
+                <div class="nav-item" data-view="tools-view">
+                    <i class="fa-solid fa-screwdriver-wrench"></i>
+                    <span>Araçlar</span>
+                </div>
+                <div class="nav-item" id="openAutoStartManagerBtn" data-modal="true">
+                    <i class="fa-solid fa-bolt"></i>
+                    <span>Oto-Başlatma</span>
+                </div>
+                <div class="nav-item" id="scanGhostsBtn" data-modal="true">
+                    <i class="fa-solid fa-satellite-dish"></i>
+                    <span>Dış Süreçler</span>
+                </div>
+                <div class="nav-item" id="openSettingsBtn" data-modal="true" onclick="openSettings()">
+                    <i class="fa-solid fa-gear"></i>
+                    <span>Ayarlar</span>
+                </div>
+            </nav>
+            <div class="sidebar-footer">
+                <div id="versionText">v1.1.0</div>
+                <a id="githubBtn" href="#" title="GitHub: Kerem Zayim">
+                    <i class="fa-brands fa-github"></i>
+                    <span>Kerem Zayim</span>
+                </a>
+            </div>
+        </aside>
+
+        <!-- Main Viewport -->
+        <main class="main-viewport">
+            <!-- Loading Screen Overlay -->
+            <div id="loading-screen" class="loading-screen">
+                <div class="loader-ripple"><div></div><div></div></div>
+                <div style="margin-top: 20px; font-size: 14px; color: var(--text-secondary); letter-spacing: 2px;">SİSTEM HAZIRLANIYOR</div>
+            </div>
+
+            <!-- Dashboard View -->
+            <div id="dashboard-view" class="view-content">
+                <header class="view-header">
+                    <div class="view-title-group">
+                        <h1>Projelerim</h1>
+                        <p id="statsOverview">Şu an aktif 0 proje yönetiliyor</p>
+                    </div>
+                    <div class="action-bar" style="gap: 12px;">
+                        <div style="position: relative;">
+                            <button id="sortDropdownBtn" class="btn-secondary">
+                                <i class="fa-solid fa-arrow-up-wide-short"></i> Sırala
+                            </button>
+                            <div id="sortDropdownMenu" style="display:none; position:absolute; top:calc(100% + 8px); right:0; background:var(--glass-bg); border:1px solid var(--glass-border); border-radius:14px; padding:8px; min-width:180px; z-index:999; box-shadow:0 10px 30px rgba(0,0,0,0.3); backdrop-filter:blur(20px);">
+                                <div class="filter-option" onclick="applySort('status')"><i class="fa-solid fa-bolt"></i> Duruma Göre</div>
+                                <div class="filter-option" onclick="applySort('az')"><i class="fa-solid fa-arrow-down-a-z"></i> İsim (A-Z)</div>
+                                <div class="filter-option" onclick="applySort('za')"><i class="fa-solid fa-arrow-up-z-a"></i> İsim (Z-A)</div>
+                            </div>
+                        </div>
+                        <div style="position: relative;">
+                            <button id="filterDropdownBtn" class="btn-secondary">
+                                <i class="fa-solid fa-filter"></i> Filtrele
+                            </button>
+                            <div id="filterDropdownMenu" style="display:none; position:absolute; top:calc(100% + 8px); right:0; background:var(--glass-bg); border:1px solid var(--glass-border); border-radius:14px; padding:8px; min-width:180px; z-index:999; box-shadow:0 10px 30px rgba(0,0,0,0.3); backdrop-filter:blur(20px);">
+                                <div class="filter-option" onclick="applyFilter('all')"><i class="fa-solid fa-border-all"></i> Tümü</div>
+                                <div class="filter-option" onclick="applyFilter('running')"><i class="fa-solid fa-circle" style="color:#10b981;font-size:8px;"></i> Aktif</div>
+                                <div class="filter-option" onclick="applyFilter('stopped')"><i class="fa-solid fa-circle" style="color:#64748b;font-size:8px;"></i> Durdurulmuş</div>
+                                <div class="filter-option" onclick="applyFilter('general')"><i class="fa-solid fa-layer-group"></i> Genel</div>
+                            </div>
+                        </div>
+                        <button class="btn-primary" id="addBtn">
+                            <i class="fa-solid fa-plus"></i> Yeni Proje
+                        </button>
+                    </div>
+                </header>
+                <div class="grid-container" id="appGrid">
+                    <!-- Proje kartları buraya gelecek -->
+                </div>
+            </div>
+
+            <!-- Groups View -->
+            <div id="groups-view" class="view-content" style="display: none;">
+                <header class="view-header">
+                    <div class="view-title-group">
+                        <h1>Kategoriler</h1>
+                        <p>Projelerinizi gruplandırarak yönetin</p>
+                    </div>
+                    <button class="btn-primary" onclick="createNewGroup()">
+                        <i class="fa-solid fa-folder-plus"></i> Yeni Kategori
+                    </button>
+                </header>
+                <div id="groupsContainer" class="grid-container">
+                    <!-- Kategoriler buraya gelecek -->
+                </div>
+            </div>
+
+            <!-- Tools View -->
+            <div id="tools-view" class="view-content" style="display: none;">
+                <header class="view-header">
+                    <div class="view-title-group">
+                        <h1>Gelişmiş Araçlar</h1>
+                        <p>Sistem ve bakım işlemleri</p>
+                    </div>
+                </header>
+                <div class="grid-container">
+                    <div class="app-card" onclick="clearAllLogs()" style="cursor: pointer; background: rgba(112, 0, 255, 0.05);">
+                        <div class="card-body">
+                            <i class="fa-solid fa-broom" style="font-size:32px; color:var(--accent-purple); margin-bottom:15px;"></i>
+                            <h3>Log Temizliği</h3>
+                            <p>Uygulama tarafından biriktirilen tüm logları silerek alan açın.</p>
+                        </div>
+                    </div>
+                    <div class="app-card" onclick="document.getElementById('scanGhostsBtn').click()" style="cursor: pointer;">
+                        <div class="card-body" style="text-align: center;">
+                            <i class="fa-solid fa-ghost" style="font-size:32px; color:var(--warning); margin-bottom:15px;"></i>
+                            <h3>Ghost Taraması</h3>
+                            <p>Arka planda yetim kalan node süreçlerini saptamaya zorla.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Console View -->
+            <div id="console-view" class="view-content" style="display: none; height: 100%; flex-direction: column;">
+                <header class="console-header">
+                    <div class="console-title">
+                        <button class="btn-secondary" id="backBtn" style="padding: 10px;"><i class="fa-solid fa-arrow-left"></i></button>
+                        <div class="view-title-group">
+                            <h3 id="activeAppName">Uygulama Adı</h3>
+                            <p id="activeAppPath">...</p>
+                        </div>
+                        <div style="margin-left: auto;">
+                            <button id="toggleProcessBtn" class="btn-primary start">
+                                <i class="fa-solid fa-play"></i> Başlat
+                            </button>
+                        </div>
+                    </div>
+                    <div class="resource-stats" id="statsContainer" style="margin-top: 20px; display: flex; gap: 15px; align-items: center;">
+                        <div class="stat-chip">
+                            <i class="fa-solid fa-microchip"></i> <span id="cpuValue">0%</span>
+                        </div>
+                        <div class="stat-chip">
+                            <i class="fa-solid fa-memory"></i> <span id="memValue">0 MB</span>
+                        </div>
+                        <div id="liveBadge" class="status-indicator running" style="display: none; position: static;">
+                            <i class="fa-solid fa-circle"></i> CANLI
+                        </div>
+                        <div style="margin-left: auto; display: flex; gap: 10px;">
+                            <button onclick="openEnvEditor()" class="mini-btn"><i class="fa-solid fa-key"></i> .env</button>
+                            <button onclick="runMaintenance('install')" class="mini-btn"><i class="fa-solid fa-download"></i> Install</button>
+                            <button onclick="runMaintenance('update')" class="mini-btn"><i class="fa-solid fa-rotate"></i> Update</button>
+                            <button onclick="openExternalTerminal()" class="mini-btn"><i class="fa-solid fa-terminal"></i></button>
+                        </div>
+                    </div>
+                </header>
+                <div class="chart-container" style="display: flex; gap: 20px; height: 180px;">
+                    <div style="flex: 1; min-width: 0;"><canvas id="cpuChart"></canvas></div>
+                    <div style="flex: 1; min-width: 0;"><canvas id="ramChart"></canvas></div>
+                </div>
+                <div id="terminal-output" class="terminal-container"></div>
+            </div>
+        </main>
     </div>
 
-    <div id="dashboard-view">
-      <div class="header-section">
-        <div>
-          <h2>Projelerim</h2>
-          <div style="color: var(--text-dim); font-size: 13px; margin-top: 5px">
-            Yönetim Paneli
-          </div>
-        </div>
-        <button class="add-btn" id="addBtn">+ Yeni Ekle</button>
-      </div>
-      <div class="divider-line"></div>
-      <div class="sub-toolbar">
-        <button
-          id="openAutoStartManagerBtn"
-          class="filter-toggle-btn"
-          title="Otomatik Başlatma Yöneticisi"
-        >
-          ⚡
-        </button>
-        <button
-          id="scanGhostsBtn"
-          class="filter-toggle-btn"
-          title="Dışarıda Çalışanları Tara"
-        >
-          <svg
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-          >
-            <path d="M2 12h20M12 2v20" />
-            <circle cx="12" cy="12" r="10" />
-            <circle cx="12" cy="12" r="4" />
-          </svg>
-        </button>
-        <div class="filter-dropdown-wrapper">
-          <button
-            id="filterDropdownBtn"
-            class="filter-toggle-btn"
-            title="Filtrele"
-          >
-            <svg
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-            >
-              <polygon
-                points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"
-              ></polygon>
-            </svg>
-          </button>
-          <div id="filterDropdownMenu" class="dropdown-content">
-            <div class="dropdown-item" onclick="applyFilter('all')">
-              <span>📋</span> Hepsi
-            </div>
-            <div class="dropdown-item" onclick="applyFilter('running')">
-              <span style="color: var(--success)">▶</span> Çalışanlar
-            </div>
-            <div class="dropdown-item" onclick="applyFilter('stopped')">
-              <span style="color: var(--danger)">⏹</span> Durmuşlar
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="grid-container" id="appGrid"></div>
-    </div>
-
-    <div id="console-view">
-      <div class="console-toolbar">
-        <div class="toolbar-left">
-          <button class="back-icon-btn" id="backBtn">←</button>
-          <div
-            style="
-              display: flex;
-              flex-direction: column;
-              justify-content: center;
-              margin-left: 10px;
-              margin-right: 20px;
-            "
-          >
-            <span
-              id="activeAppName"
-              style="font-weight: 600; font-size: 14px; line-height: 1.2"
-              >Uygulama Adı</span
-            >
-            <span
-              id="activeAppPath"
-              style="
-                font-size: 10px;
-                color: #666;
-                max-width: 400px;
-                white-space: nowrap;
-                overflow: hidden;
-                text-overflow: ellipsis;
-              "
-              >...</span
-            >
-          </div>
-          <div id="statsContainer" style="display: none; gap: 10px">
-            <div
-              class="status-badge"
-              style="
-                background: rgba(59, 130, 246, 0.15);
-                color: #3b82f6;
-                border-color: rgba(59, 130, 246, 0.3);
-              "
-            >
-              <span>⚡ <span id="cpuValue">0%</span></span>
-            </div>
-            <div
-              class="status-badge"
-              style="
-                background: rgba(245, 158, 11, 0.15);
-                color: #f59e0b;
-                border-color: rgba(245, 158, 11, 0.3);
-              "
-            >
-              <span>💾 <span id="memValue">0 MB</span></span>
-            </div>
-          </div>
-          <div
-            id="liveBadge"
-            class="status-badge"
-            style="display: none; margin-left: 15px"
-          >
-            <div class="status-dot"></div>
-            CANLI
-          </div>
-        </div>
-        <div class="toolbar-right">
-          <button id="toggleProcessBtn" class="action-btn start">
-            Başlat ▶
-          </button>
-        </div>
-      </div>
-      <div id="terminal-output"></div>
-    </div>
-
-    <!-- Yeni Ekleme Seçenek Modal -->
+    <!-- Modals -->
     <div id="addChoiceModal" class="modal-overlay">
-      <div class="modal-content" style="width: 350px; text-align: center">
-        <div class="modal-header">
-          <span>Proje Türü Seçin</span>
-          <span style="cursor: pointer" onclick="document.getElementById('addChoiceModal').style.display='none'">✕</span>
+        <div class="modal-content">
+            <div class="modal-header">
+                <span>Ekleme Türü</span>
+                <i class="fa-solid fa-xmark" onclick="document.getElementById('addChoiceModal').style.display='none'"></i>
+            </div>
+            <div style="display: grid; gap: 15px; margin-top: 20px;">
+                <button id="selectJsFileBtn" class="btn-primary" style="justify-content: center; height: 55px;"><i class="fa-solid fa-file-js"></i> Dosya Seç (.js)</button>
+                <button id="selectNpmScriptBtn" class="btn-secondary" style="justify-content: center; height: 55px;"><i class="fa-brands fa-npm"></i> NPM Script</button>
+            </div>
         </div>
-        <div style="display: flex; flex-direction: column; gap: 15px; margin-top: 10px;">
-          <button id="selectJsFileBtn" class="add-btn" style="width: 100%; height: 50px; font-size: 14px;">
-            📄 .js Dosyası Seç
-          </button>
-          <button id="selectNpmScriptBtn" class="add-btn" style="width: 100%; height: 50px; font-size: 14px; background: #cb3837;">
-            📦 NPM Script Çalıştır
-          </button>
-        </div>
-        <div class="modal-footer" style="justify-content: center; margin-top: 20px;">
-          <button class="btn-cancel" onclick="document.getElementById('addChoiceModal').style.display='none'">İptal</button>
-        </div>
-      </div>
     </div>
 
-    <!-- NPM Script Seçim Modal -->
-    <div id="npmScriptModal" class="modal-overlay">
-      <div class="modal-content" style="width: 450px;">
-        <div class="modal-header">
-          <span>NPM Script Seçin</span>
-          <span style="cursor: pointer" onclick="document.getElementById('npmScriptModal').style.display='none'">✕</span>
+    <div id="groupModal" class="modal-overlay">
+        <div class="modal-content" style="width: 400px;">
+            <div class="modal-header">
+                <span id="groupModalTitle">Yeni Kategori</span>
+                <i class="fa-solid fa-xmark" onclick="document.getElementById('groupModal').style.display='none'"></i>
+            </div>
+            <div class="form-group" style="padding: 20px 0;">
+                <label class="form-label">Kategori Adı</label>
+                <input type="text" id="groupNameInput" class="form-input" placeholder="Kategori ismini girin">
+            </div>
+            <div class="modal-footer">
+                <button class="btn-cancel" onclick="document.getElementById('groupModal').style.display='none'">Vazgeç</button>
+                <button class="btn-primary" id="saveGroupBtn">Bitti</button>
+            </div>
         </div>
-        <div id="npmScriptsList" class="scan-list-container" style="max-height: 350px;">
-          <!-- Scriptler buraya gelecek -->
-        </div>
-        <div class="modal-footer">
-          <button class="btn-cancel" onclick="document.getElementById('npmScriptModal').style.display='none'">Vazgeç</button>
-        </div>
-      </div>
-    </div>
-
-    <div id="scanModal" class="modal-overlay">
-      <div class="modal-content" style="width: 600px">
-        <div class="modal-header">
-          <span>📡 Bulunan Projeler</span
-          ><span style="cursor: pointer" id="closeScanModalBtn">✕</span>
-        </div>
-        <div id="scanResultsList" class="scan-list-container"></div>
-        <div class="modal-footer" style="justify-content: flex-end">
-          <button class="btn-cancel" id="closeScanBtn">Kapat</button>
-        </div>
-      </div>
-    </div>
-
-    <div id="autoStartModal" class="modal-overlay">
-      <div class="modal-content" style="width: 400px">
-        <div class="modal-header">
-          <span>⚡ Otomatik Başlatma</span
-          ><span style="cursor: pointer" id="closeAutoStartModalBtn">✕</span>
-        </div>
-        <div style="font-size: 13px; color: #aaa; margin-bottom: 15px">
-          Program açıldığında otomatik olarak başlamasını istediğiniz projeleri
-          seçin.
-        </div>
-        <div
-          id="autoStartListContainer"
-          style="
-            max-height: 300px;
-            overflow-y: auto;
-            background: #121212;
-            border: 1px solid #333;
-            border-radius: 8px;
-            padding: 5px;
-          "
-        ></div>
-        <div class="modal-footer" style="justify-content: flex-end">
-          <button class="btn-save" id="closeAutoStartBtn">Tamam</button>
-        </div>
-      </div>
-    </div>
-
     </div>
 
     <div id="editModal" class="modal-overlay">
-      <div class="modal-content">
-        <div class="modal-header">
-          <span>Düzenle</span
-          ><span style="cursor: pointer" id="closeModalBtn">✕</span>
+        <div class="modal-content" style="width: 500px;">
+            <div class="modal-header">
+                <span>Proje Ayarları</span>
+                <i class="fa-solid fa-xmark" id="closeModalBtn"></i>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Kategori</label>
+                <select id="editGroup" class="form-input">
+                    <option value="">Genel</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Proje İsmi</label>
+                <input type="text" id="editName" class="form-input" placeholder="Proje adını girin">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Proje Dizini</label>
+                <div style="display: flex; gap: 5px;">
+                    <input type="text" id="editPath" class="form-input" readonly>
+                    <button id="changePathBtn" class="btn-secondary" style="padding: 10px;"><i class="fa-solid fa-folder-open"></i></button>
+                </div>
+            </div>
+            <div id="editNpmScriptGroup" class="form-group" style="display: none;">
+                <label class="form-label">NPM Script</label>
+                <select id="editNpmScript" class="form-input"></select>
+            </div>
+            <div class="form-group" style="display: flex; align-items: center; gap: 12px;">
+                <label class="switch"><input type="checkbox" id="editAutoStart"><span class="slider"></span></label>
+                <span style="font-size: 13px; color: var(--text-dim);">Uygulama açıldığında otomatik başlat</span>
+            </div>
+            <div class="form-group">
+                <label class="form-label">İkon Seçin</label>
+                <div class="icon-selector" id="iconPool"></div>
+                <button id="uploadImgBtn" class="btn-secondary" style="width: 100%; margin-top: 15px;">
+                    <i class="fa-solid fa-image"></i> Özel Resim Yükle...
+                </button>
+            </div>
+            <div class="modal-footer">
+                <button id="deleteAppBtn" class="btn-delete">SİL</button>
+                <div style="display: flex; gap: 10px;">
+                    <button id="cancelEditBtn" class="btn-cancel">İptal</button>
+                    <button id="saveEditBtn" class="btn-primary">Değişiklikleri Kaydet</button>
+                </div>
+            </div>
         </div>
-        <div class="form-group">
-          <label class="form-label">Uygulama Adı</label
-          ><input type="text" id="editName" class="form-input" />
-        </div>
-        <div class="form-group">
-          <label class="form-label">Dosya Yolu</label>
-          <div style="display: flex; gap: 10px">
-            <input
-              type="text"
-              id="editPath"
-              class="form-input"
-              readonly
-            /><button
-              id="changePathBtn"
-              style="
-                background: #333;
-                color: white;
-                border: 1px solid #444;
-                border-radius: 6px;
-                cursor: pointer;
-              "
-            >
-              📂
-            </button>
-          </div>
-        </div>
-        <div
-          class="form-group"
-          style="
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            margin-top: 15px;
-            padding-top: 15px;
-            border-top: 1px solid #333;
-          "
-        >
-          <input
-            type="checkbox"
-            id="editAutoStart"
-            style="width: 16px; height: 16px; cursor: pointer"
-          />
-          <label
-            for="editAutoStart"
-            style="font-size: 13px; color: #e0e0e0; cursor: pointer"
-            >Bu projeyi program açılışında otomatik başlat</label
-          >
-        </div>
-        <div class="form-group">
-          <label class="form-label">İkon Seç</label>
-          <div class="icon-selector" style="flex-wrap: wrap; height: auto;">
-            <div class="preset-icon" onclick="selectIcon('🚀')">🚀</div>
-            <div class="preset-icon" onclick="selectIcon('💻')">💻</div>
-            <div class="preset-icon" onclick="selectIcon('🌐')">🌐</div>
-            <div class="preset-icon" onclick="selectIcon('🎮')">🎮</div>
-            <div class="preset-icon" onclick="selectIcon('🔥')">🔥</div>
-            <div class="preset-icon" onclick="selectIcon('🤖')">🤖</div>
-            <div class="preset-icon" onclick="selectIcon('⚡')">⚡</div>
-            <div class="preset-icon" onclick="selectIcon('🛠️')">🛠️</div>
-            <div class="preset-icon" onclick="selectIcon('📦')">📦</div>
-            <div class="preset-icon" onclick="selectIcon('🕸️')">🕸️</div>
-            <div class="preset-icon" onclick="selectIcon('🔌')">🔌</div>
-            <div class="preset-icon" onclick="selectIcon('💾')">💾</div>
-            <div class="preset-icon" onclick="selectIcon('🖥️')">🖥️</div>
-            <div class="preset-icon" onclick="selectIcon('📡')">📡</div>
-            <div class="preset-icon" onclick="selectIcon('🧪')">🧪</div>
-            <button
-              id="uploadImgBtn"
-              style="
-                font-size: 11px;
-                padding: 0 10px;
-                height: 40px;
-                background: #333;
-                color: white;
-                border: none;
-                border-radius: 6px;
-                cursor: pointer;
-              "
-            >
-              Resim<br />Seç
-            </button>
-          </div>
-          <div style="margin-top: 10px; font-size: 12px; color: #666">
-            Seçilen: <span id="selectedIconDisplay">🚀</span>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button class="btn-delete" id="deleteAppBtn">Sil</button>
-          <div>
-            <button class="btn-cancel" id="cancelEditBtn">İptal</button
-            ><button class="btn-save" id="saveEditBtn">Kaydet</button>
-          </div>
-        </div>
-      </div>
     </div>
 
-    <div id="deleteModal" class="modal-overlay">
-      <div class="modal-content" style="width: 350px; text-align: center">
-        <div style="font-size: 50px; margin-bottom: 10px">⚠️</div>
-        <h3 style="margin: 0 0 10px 0; color: #fff">Emin misiniz?</h3>
-        <p style="color: #aaa; font-size: 13px; margin-bottom: 25px">
-          Bu projeyi listeden kaldırmak üzeresiniz.
-        </p>
-        <div class="modal-footer" style="justify-content: center; gap: 15px">
-          <button class="btn-cancel" id="cancelDeleteBtn" style="width: 100px">
-            Vazgeç
-          </button>
-          <button
-            class="btn-delete"
-            id="confirmDeleteBtn"
-            style="width: 100px; background: #ef4444; color: white"
-          >
-            SİL
-          </button>
+    <!-- Env Editor Modal -->
+    <div id="envModal" class="modal-overlay">
+        <div class="modal-content" style="width: 850px; height: 85vh; display: flex; flex-direction: column;">
+            <div class="modal-header">
+                <span>.env Editor</span>
+                <i class="fa-solid fa-xmark" onclick="document.getElementById('envModal').style.display='none'"></i>
+            </div>
+            <textarea id="envContent" class="form-input" style="flex: 1; margin: 20px 0; font-family: 'JetBrains Mono', monospace; line-height: 1.6; font-size: 13px; resize: none; border-color: rgba(112, 0, 255, 0.2);"></textarea>
+            <div class="modal-footer" style="justify-content: flex-end;">
+                <button class="btn-cancel" onclick="document.getElementById('envModal').style.display='none'">Vazgeç</button>
+                <button class="btn-primary" onclick="saveEnvContent()">Değişiklikleri Uygula</button>
+            </div>
         </div>
-      </div>
     </div>
 
-    <div id="alertModal" class="modal-overlay" style="z-index: 300">
-      <div class="modal-content" style="width: 350px; text-align: center">
-        <div style="font-size: 40px; margin-bottom: 15px">ℹ️</div>
-        <h3 id="alertTitle" style="margin: 0 0 10px 0; color: #fff">Bilgi</h3>
-        <p
-          id="alertMessage"
-          style="
-            color: #ccc;
-            font-size: 14px;
-            margin-bottom: 25px;
-            line-height: 1.5;
-          "
-        ></p>
-        <div class="modal-footer" style="justify-content: center">
-          <button class="btn-save" id="closeAlertModalBtn" style="width: 100%">
-            Tamam
-          </button>
+    <!-- Improved Prompt Modal (Alert & Confirm) -->
+    <div id="promptModal" class="modal-overlay">
+        <div class="modal-content" style="text-align: center; width: 400px;">
+            <div id="promptIcon" style="font-size: 48px; margin-bottom: 20px;">
+                <i class="fa-solid fa-circle-exclamation" style="color: var(--warning);"></i>
+            </div>
+            <h2 id="promptTitle" style="margin-bottom: 12px;">Başlık</h2>
+            <p id="promptMessage" style="margin-bottom: 28px; color: var(--text-secondary); line-height: 1.6;"></p>
+            
+            <div id="promptActions" style="display: flex; gap: 12px; justify-content: center;">
+                <button id="promptCancelBtn" class="btn-cancel" style="flex: 1; justify-content: center; display: none;">Vazgeç</button>
+                <button id="promptConfirmBtn" class="btn-primary" style="flex: 1; justify-content: center;">Tamam</button>
+            </div>
         </div>
-      </div>
     </div>
 
-    <div id="whatsNewModal" class="modal-overlay" style="z-index: 500">
-      <div class="modal-content" style="width: 500px; max-height: 80vh">
-        <div class="modal-header">
-          <span id="whatsNewTitle">🚀 Yeni Sürüm Yayında!</span>
-          <span style="cursor: pointer" id="closeWhatsNewModalBtn">✕</span>
+    <!-- Supporting Empty Modals -->
+    <div id="scanModal" class="modal-overlay">
+        <div class="modal-content" style="width: 500px;">
+            <div class="modal-header"><span>Dış Süreç Sonuçları</span><i class="fa-solid fa-xmark" onclick="document.getElementById('scanModal').style.display='none'"></i></div>
+            <div id="scanResultsList" style="max-height: 400px; overflow-y: auto; margin: 15px 0;"></div>
+            <div class="modal-footer" style="justify-content: flex-end;"><button class="btn-secondary" onclick="document.getElementById('scanModal').style.display='none'">Kapat</button></div>
         </div>
-        <div
-          id="whatsNewContent"
-          style="
-            padding: 15px 0;
-            font-size: 14px;
-            color: #ccc;
-            line-height: 1.6;
-            overflow-y: auto;
-            max-height: 350px;
-            white-space: pre-wrap;
-          "
-        >
-          Yükleniyor...
-        </div>
-        <div class="modal-footer">
-          <button class="btn-save" id="closeWhatsNewBtn" style="width: 100%">
-            Harika!
-          </button>
-        </div>
-      </div>
     </div>
-
-    <button
-      id="openSettingsBtn"
-      title="Ayarlar"
-      style="
-        position: fixed;
-        bottom: 20px;
-        left: 20px;
-        background: transparent;
-        border: none;
-        color: #555;
-        cursor: pointer;
-        z-index: 100;
-        transition: color 0.3s;
-      "
-    >
-      <svg
-        width="24"
-        height="24"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-      >
-        <circle cx="12" cy="12" r="3"></circle>
-        <path
-          d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"
-        ></path>
-      </svg>
-    </button>
-
+    
+    <div id="autoStartModal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header"><span>Oto-Başlatma Yönetimi</span><i class="fa-solid fa-xmark" onclick="document.getElementById('autoStartModal').style.display='none'"></i></div>
+            <div id="autoStartListContainer" style="margin: 15px 0;"></div>
+            <div class="modal-footer" style="justify-content: flex-end;"><button id="closeAutoStartBtn" class="btn-secondary">Kapat</button></div>
+        </div>
+    </div>
+    
+    <div id="npmScriptModal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header"><span>Script Seçin</span><i class="fa-solid fa-xmark" onclick="document.getElementById('npmScriptModal').style.display='none'"></i></div>
+            <div id="npmScriptsList" style="margin: 15px 0; max-height: 350px; overflow-y: auto;"></div>
+        </div>
+    </div>
+    
     <div id="settingsModal" class="modal-overlay">
-      <div class="modal-content" style="width: 400px">
-        <div class="modal-header">
-          <span>⚙️ Sistem Ayarları</span>
-          <span style="cursor: pointer" id="closeSettingsModalBtn">✕</span>
+        <div class="modal-content">
+            <div class="modal-header"><span>Genel Ayarlar</span><i class="fa-solid fa-xmark" onclick="document.getElementById('settingsModal').style.display='none'"></i></div>
+            <div style="display: grid; gap: 20px; margin: 20px 0;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span>Windows ile Başlat</span>
+                    <label class="switch"><input type="checkbox" id="winAutoStartToggle"><span class="slider"></span></label>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span>Sistem Tepsisinde Başlat</span>
+                    <label class="switch"><input type="checkbox" id="settingStartMinimized"><span class="slider"></span></label>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span>Otomatik Güncelleme</span>
+                    <label class="switch"><input type="checkbox" id="autoUpdateToggle"><span class="slider"></span></label>
+                </div>
+                <div class="form-group" style="border-top: 1px solid var(--glass-border); padding-top: 15px; margin-top: 5px;">
+                    <label class="form-label">Görünüm (Tema Seçimi)</label>
+                    <div class="theme-selector">
+                        <div class="theme-dot cyber" onclick="setTheme('cyber-amethyst')" title="Cyber Amethyst"></div>
+                        <div class="theme-dot carbon" onclick="setTheme('carbon-deep')" title="Carbon Deep"></div>
+                        <div class="theme-dot frost" onclick="setTheme('crystal-frost')" title="Crystal Frost"></div>
+                        <div class="theme-dot mint" onclick="setTheme('nature-mint')" title="Nature Mint"></div>
+                    </div>
+                </div>
+            </div>
+            <p id="currentVerText" style="font-size: 11px; opacity: 0.5; color: var(--accent-purple);"></p>
+            <div class="modal-footer" style="justify-content: space-between;">
+                <button id="checkUpdateBtn" class="btn-secondary"><i class="fa-solid fa-rotate"></i> Güncellemeleri Denetle</button>
+                <button id="closeSettingsBtn" class="btn-primary">Ayarları Kaydet ve Kapat</button>
+            </div>
         </div>
-        <div class="settings-body" style="padding: 10px 0">
-          <div
-            style="
-              display: flex;
-              justify-content: space-between;
-              align-items: center;
-              margin-bottom: 20px;
-            "
-          >
-            <div>
-              <div style="font-size: 14px; color: #eee">
-                Windows Başlangıcında Çalıştır
-              </div>
-              <div style="font-size: 11px; color: #666">
-                Bilgisayar açıldığında otomatik açılır.
-              </div>
-            </div>
-            <label class="switch"
-              ><input type="checkbox" id="winAutoStartToggle" /><span
-                class="slider"
-              ></span
-            ></label>
-          </div>
-
-          <div
-            style="
-              display: flex;
-              justify-content: space-between;
-              align-items: center;
-              margin-bottom: 20px;
-            "
-          >
-            <div>
-              <div style="font-size: 14px; color: #eee">
-                Küçültülmüş Olarak Başlat
-              </div>
-              <div style="font-size: 11px; color: #666">
-                Yalnızca sağ alt simgede (Tray) başlar.
-              </div>
-            </div>
-            <label class="switch"
-              ><input type="checkbox" id="settingStartMinimized" /><span
-                class="slider"
-              ></span
-            ></label>
-          </div>
-
-          <div
-            style="
-              display: flex;
-              justify-content: space-between;
-              align-items: center;
-              margin-bottom: 20px;
-            "
-          >
-            <div>
-              <div style="font-size: 14px; color: #eee">
-                Otomatik Güncelleme
-              </div>
-              <div style="font-size: 11px; color: #666">
-                Güncellemeleri arka planda denetler.
-              </div>
-            </div>
-            <label class="switch"
-              ><input type="checkbox" id="autoUpdateToggle" checked /><span
-                class="slider"
-              ></span
-            ></label>
-          </div>
-
-          <div
-            style="
-              border-top: 1px solid #333;
-              padding-top: 15px;
-              margin-top: 15px;
-            "
-          >
-            <div
-              style="
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-              "
-            >
-              <span style="font-size: 12px; color: #888"
-                >Mevcut Versiyon: <b id="currentVerText">1.0.2</b></span
-              >
-              <button
-                id="manualCheckUpdateBtn"
-                class="btn-save"
-                style="font-size: 11px; padding: 5px 10px"
-              >
-                Güncellemeleri Denetle
-              </button>
-            </div>
-            <div
-              id="updateStatusMsg"
-              style="
-                font-size: 11px;
-                color: var(--success);
-                margin-top: 8px;
-                text-align: right;
-              "
-            ></div>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button class="btn-cancel" id="closeSettingsBtn" style="width: 100%">
-            Kapat
-          </button>
-        </div>
-      </div>
     </div>
-
 
     <script src="src/renderer.js"></script>
-  </body>
+</body>
 </html>
