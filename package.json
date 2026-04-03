@@ -1,6 +1,6 @@
 {
   "name": "node-launcher",
-  "version": "1.0.3",
+  "version": "1.1.1",
   "description": "Kerem Zayim tarafından geliştirilen, Node.js projelerini kolayca yönetip başlatmanızı sağlayan Node Launcher uygulaması.",
   "main": "main.js",
   "scripts": {
@@ -24,7 +24,8 @@
   },
   "build": {
     "appId": "com.keremzayim.nodelauncher",
-    "productName": "KZ-Node-Launcher",
+    "productName": "KZ Node Launcher",
+    "executableName": "KZ-Node-Launcher",
     "artifactName": "${productName}-Setup-${version}.${ext}",
     "directories": {
       "output": "dist"
@@ -44,7 +45,9 @@
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
-      "createStartMenuShortcut": true
+      "createStartMenuShortcut": true,
+      "shortcutName": "KZ Node Launcher",
+      "uninstallDisplayName": "KZ Node Launcher (Kaldır)"
     }
   }
 }

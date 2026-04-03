@@ -16,7 +16,8 @@
     
     <!-- Title Bar -->
     <div id="title-bar">
-        <div class="logo">
+        <div class="logo" style="display: flex; align-items: center;">
+            <img src="images/icon.png" style="height: 22px; margin-right: 10px;">
             <span style="background: var(--accent-gradient); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-weight: 900; letter-spacing: 2px;">KZ NODE LAUNCHER</span>
         </div>
         <div class="window-controls">
@@ -57,7 +58,7 @@
                 </div>
             </nav>
             <div class="sidebar-footer">
-                <div id="versionText">v1.1.0</div>
+                <div id="versionText">v1.1.1</div>
                 <a id="githubBtn" href="#" title="GitHub: Kerem Zayim">
                     <i class="fa-brands fa-github"></i>
                     <span>Kerem Zayim</span>
@@ -67,18 +68,31 @@
 
         <!-- Main Viewport -->
         <main class="main-viewport">
-            <!-- Loading Screen Overlay -->
-            <div id="loading-screen" class="loading-screen">
-                <div class="loader-ripple"><div></div><div></div></div>
-                <div style="margin-top: 20px; font-size: 14px; color: var(--text-secondary); letter-spacing: 2px;">SİSTEM HAZIRLANIYOR</div>
+        <!-- Loading Screen Overlay (Splash) -->
+        <div id="loading-screen" class="loading-screen">
+            <div class="splash-container">
+                <img src="images/startup.png" class="splash-image" alt="KZ Node Launcher">
+                <div class="splash-loader">
+                    <div class="splash-progress"></div>
+                </div>
+                <div class="splash-status">SİSTEM HAZIRLANIYOR...</div>
+                <div class="splash-version">v1.1.0</div>
             </div>
+        </div>
 
             <!-- Dashboard View -->
             <div id="dashboard-view" class="view-content">
                 <header class="view-header">
                     <div class="view-title-group">
-                        <h1>Projelerim</h1>
-                        <p id="statsOverview">Şu an aktif 0 proje yönetiliyor</p>
+                        <div style="display: flex; align-items: center; gap: 15px;">
+                            <button id="clearFilterBtn" class="btn-secondary" style="display: none; padding: 8px 12px; border-radius: 10px;" onclick="applyFilter('all')">
+                                <i class="fa-solid fa-arrow-left"></i>
+                            </button>
+                            <div>
+                                <h1 id="dashboardTitle">Projelerim</h1>
+                                <p id="statsOverview">Şu an aktif 0 proje yönetiliyor</p>
+                            </div>
+                        </div>
                     </div>
                     <div class="action-bar" style="gap: 12px;">
                         <div style="position: relative;">
@@ -159,9 +173,14 @@
                 <header class="console-header">
                     <div class="console-title">
                         <button class="btn-secondary" id="backBtn" style="padding: 10px;"><i class="fa-solid fa-arrow-left"></i></button>
-                        <div class="view-title-group">
+                        <div class="view-title-group" style="display: flex; flex-direction: column; gap: 4px;">
                             <h3 id="activeAppName">Uygulama Adı</h3>
-                            <p id="activeAppPath">...</p>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <p id="activeAppPath" style="margin: 0; opacity: 0.6; font-size: 11px;">...</p>
+                                <button onclick="openProjectFolder()" class="mini-btn" style="padding: 2px 6px; font-size: 10px; border-radius: 6px;" title="Klasörü Aç">
+                                    <i class="fa-solid fa-folder-open"></i>
+                                </button>
+                            </div>
                         </div>
                         <div style="margin-left: auto;">
                             <button id="toggleProcessBtn" class="btn-primary start">
@@ -254,10 +273,26 @@
                 <label class="form-label">NPM Script</label>
                 <select id="editNpmScript" class="form-input"></select>
             </div>
-            <div class="form-group" style="display: flex; align-items: center; gap: 12px;">
-                <label class="switch"><input type="checkbox" id="editAutoStart"><span class="slider"></span></label>
-                <span style="font-size: 13px; color: var(--text-dim);">Uygulama açıldığında otomatik başlat</span>
+            <div class="form-group" style="display: flex; gap: 15px;">
+                <div style="display: flex; align-items: center; gap: 12px; flex: 1;">
+                    <label class="switch"><input type="checkbox" id="editAutoStart"><span class="slider"></span></label>
+                    <span style="font-size: 13px; color: var(--text-dim);">Otomatik Başlat</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 12px; flex: 1;">
+                    <label class="switch"><input type="checkbox" id="editWatchdog"><span class="slider"></span></label>
+                    <span style="font-size: 13px; color: var(--accent-purple); font-weight: 600;">Watchdog</span>
+                </div>
             </div>
+                <div style="display: flex; gap: 15px; width: 100%;">
+                    <div class="form-group" style="flex: 1;">
+                        <label class="form-label">Port Kontrolü</label>
+                        <input type="number" id="editWatchPort" class="form-input" placeholder="Örn: 3000">
+                    </div>
+                    <div class="form-group" style="flex: 1;">
+                        <label class="form-label">Hafıza Sınırı (MB)</label>
+                        <input type="number" id="editMemoryLimit" class="form-input" placeholder="Örn: 512">
+                    </div>
+                </div>
             <div class="form-group">
                 <label class="form-label">İkon Seçin</label>
                 <div class="icon-selector" id="iconPool"></div>
@@ -275,14 +310,32 @@
         </div>
     </div>
 
-    <!-- Env Editor Modal -->
     <div id="envModal" class="modal-overlay">
         <div class="modal-content" style="width: 850px; height: 85vh; display: flex; flex-direction: column;">
             <div class="modal-header">
-                <span>.env Editor</span>
+                <div style="display: flex; align-items: center; gap: 15px;">
+                    <span>.env Editor</span>
+                    <div class="mode-tabs" style="display: flex; gap: 10px; margin-left: 10px;">
+                        <button id="envTextModeBtn" class="mini-btn active" onclick="switchEnvMode('text')">Metin Modu</button>
+                        <button id="envGridModeBtn" class="mini-btn" onclick="switchEnvMode('grid')">Görsel Mod</button>
+                    </div>
+                </div>
                 <i class="fa-solid fa-xmark" onclick="document.getElementById('envModal').style.display='none'"></i>
             </div>
+            
+            <!-- Raw Text View -->
             <textarea id="envContent" class="form-input" style="flex: 1; margin: 20px 0; font-family: 'JetBrains Mono', monospace; line-height: 1.6; font-size: 13px; resize: none; border-color: rgba(112, 0, 255, 0.2);"></textarea>
+            
+            <!-- Visual Grid View (Hidden by default) -->
+            <div id="envGridView" style="display: none; flex: 1; overflow-y: auto; margin: 20px 0; padding-right: 10px;">
+                <div id="envGridList" style="display: grid; gap: 10px;">
+                    <!-- .env rows will be injected here -->
+                </div>
+                <button class="btn-secondary" onclick="addEnvRow()" style="width: 100%; margin-top: 20px; border-style: dashed; opacity: 0.8;">
+                    <i class="fa-solid fa-plus"></i> Yeni Değişken Ekle
+                </button>
+            </div>
+
             <div class="modal-footer" style="justify-content: flex-end;">
                 <button class="btn-cancel" onclick="document.getElementById('envModal').style.display='none'">Vazgeç</button>
                 <button class="btn-primary" onclick="saveEnvContent()">Değişiklikleri Uygula</button>

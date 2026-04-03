@@ -54,7 +54,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             loadingScreen.style.pointerEvents = "none";
             setTimeout(() => loadingScreen.style.display = "none", 500);
         }
-    }, 1000);
+    }, 3000);
 
     initSidebar();
     initWindowControls();
@@ -131,8 +131,15 @@ function initWindowControls() {
 
 function initModals() {
     document.querySelectorAll(".modal-overlay").forEach(overlay => {
-        overlay.addEventListener("click", (e) => {
-            if (e.target === overlay) overlay.style.display = "none";
+        let isMouseDownOnOverlay = false;
+        overlay.addEventListener("mousedown", (e) => {
+            isMouseDownOnOverlay = (e.target === overlay);
+        });
+        overlay.addEventListener("mouseup", (e) => {
+            if (isMouseDownOnOverlay && e.target === overlay) {
+                overlay.style.display = "none";
+            }
+            isMouseDownOnOverlay = false;
         });
     });
 
@@ -243,6 +250,79 @@ async function loadAndRenderApps() {
     updateOverviewStats(appsWithStatus);
     renderGroups(groups);
     populateGroupSelect(groups);
+
+    // Update Filter UI
+    const titleEl = document.getElementById("dashboardTitle");
+    const clearBtn = document.getElementById("clearFilterBtn");
+    if (titleEl && clearBtn) {
+        if (currentFilter === "all") {
+            titleEl.innerText = "Projelerim";
+            clearBtn.style.display = "none";
+        } else {
+            let filterName = "Filtrelenmiş Projeler";
+            if (currentFilter === "running") filterName = "Aktif Projeler";
+            else if (currentFilter === "stopped") filterName = "Durdurulmuş Projeler";
+            else if (currentFilter === "general") filterName = "Genel Projeler";
+            else {
+                const group = groups.find(g => g.id == currentFilter);
+                if (group) filterName = group.name;
+            }
+            titleEl.innerText = filterName;
+            clearBtn.style.display = "flex";
+            
+            // Add Batch Buttons to Header if it's a specific group
+            if (typeof currentFilter === "number") {
+                const batchHtml = `
+                    <div style="display:flex; gap:8px; margin-left:15px; border-left:1px solid var(--glass-border); padding-left:15px;">
+                        <button class="mini-btn" onclick="batchAction(${currentFilter}, 'start')" style="color:#10b981; border-color:rgba(16,185,129,0.2);">
+                            <i class="fa-solid fa-play"></i> HEPSİNİ BAŞLAT
+                        </button>
+                        <button class="mini-btn" onclick="batchAction(${currentFilter}, 'stop')" style="color:var(--danger); border-color:rgba(239,68,68,0.2);">
+                            <i class="fa-solid fa-stop"></i> HEPSİNİ DURDUR
+                        </button>
+                    </div>
+                `;
+                titleEl.parentElement.insertAdjacentHTML('beforeend', batchHtml);
+            }
+        }
+    }
+}
+
+window.batchAction = async (groupId, action) => {
+    const apps = await ipcRenderer.invoke("get-apps");
+    const groupApps = apps.filter(a => a.groupId == groupId);
+    
+    if (groupApps.length === 0) return;
+
+    for (const app of groupApps) {
+        const isRunning = await ipcRenderer.invoke("get-process-status", app.id);
+        if (action === "start" && !isRunning) {
+            ipcRenderer.send("start-process", app);
+        } else if (action === "stop" && isRunning) {
+            ipcRenderer.send("stop-process", app);
+        }
+    }
+    
+    showAlert("Grup İşlemi", `${groupApps.length} proje için '${action}' komutu gönderildi.`, "success");
+};
+
+function populateGroupSelect(groups) {
+    const select = document.getElementById("editGroup");
+    if (!select) return;
+    
+    // Save current value
+    const val = select.value;
+    
+    select.innerHTML = '<option value="">Genel</option>';
+    groups.forEach(g => {
+        const opt = document.createElement("option");
+        opt.value = g.id;
+        opt.innerText = g.name;
+        select.appendChild(opt);
+    });
+    
+    // Restore value
+    select.value = val;
 }
 
 function updateOverviewStats(apps) {
@@ -311,9 +391,15 @@ async function renderGroups(groups) {
                 <h3>${group.name}</h3>
                 <p style="font-size:12px; opacity:0.6;">${projectCount} Proje</p>
             </div>
-            <div class="card-footer" style="display:flex; gap:10px; padding:15px; border-top:1px solid rgba(255,255,255,0.05);">
-                <button class="mini-btn" onclick="event.stopPropagation(); openGroupModal(${group.id}, '${group.name}')" style="flex:1;">DÜZENLE</button>
-                <button class="mini-btn" onclick="event.stopPropagation(); deleteGroup(${group.id})" style="flex:1; border-color:rgba(239,68,68,0.2); color:var(--danger);">SİL</button>
+            <div class="card-footer" style="display:flex; flex-direction:column; gap:8px; padding:15px; border-top:1px solid rgba(255,255,255,0.05);">
+                <div style="display:flex; gap:10px; width:100%;">
+                    <button class="mini-btn" onclick="event.stopPropagation(); batchAction(${group.id}, 'start')" style="flex:1; color:#10b981;">BAŞLAT</button>
+                    <button class="mini-btn" onclick="event.stopPropagation(); batchAction(${group.id}, 'stop')" style="flex:1; color:var(--danger);">DURDUR</button>
+                </div>
+                <div style="display:flex; gap:10px; width:100%;">
+                    <button class="mini-btn" onclick="event.stopPropagation(); openGroupModal(${group.id}, '${group.name}')" style="flex:1; opacity:0.6;">DÜZENLE</button>
+                    <button class="mini-btn" onclick="event.stopPropagation(); deleteGroup(${group.id})" style="flex:1; border-color:rgba(239,68,68,0.2); color:var(--danger); opacity:0.6;">SİL</button>
+                </div>
             </div>
         `;
         card.onclick = () => applyFilter(group.id);
@@ -496,7 +582,7 @@ ipcRenderer.on("process-log", (event, { appId, log }) => {
 });
 
 ipcRenderer.on("resource-update", (event, stats) => {
-    if (currentViewingApp && cpuChart && ramChart) {
+    if (currentViewingApp && currentAppPid && stats[currentAppPid] && cpuChart && ramChart) {
         const stat = stats[currentAppPid];
         if (stat) {
             const cpu = stat.cpu;
@@ -564,9 +650,15 @@ window.openEditModal = async (appId) => {
     const app = apps.find(a => a.id === appId);
     if (!app) return;
     currentEditingAppId = appId;
+    const groups = await ipcRenderer.invoke("get-groups");
+    populateGroupSelect(groups);
+
     document.getElementById("editName").value = app.name;
     document.getElementById("editPath").value = app.path;
     document.getElementById("editAutoStart").checked = !!app.autoStart;
+    document.getElementById("editWatchdog").checked = !!app.watchdog;
+    document.getElementById("editWatchPort").value = app.watchPort || "";
+    document.getElementById("editMemoryLimit").value = app.memoryLimit || "";
     document.getElementById("editGroup").value = app.groupId || "";
     currentSelectedIcon = app.icon || "🚀";
 
@@ -600,7 +692,10 @@ document.getElementById("saveEditBtn")?.addEventListener("click", () => {
         path: document.getElementById("editPath").value,
         groupId: parseInt(document.getElementById("editGroup").value) || null,
         icon: currentSelectedIcon,
-        autoStart: document.getElementById("editAutoStart").checked
+        autoStart: document.getElementById("editAutoStart").checked,
+        watchdog: document.getElementById("editWatchdog").checked,
+        watchPort: parseInt(document.getElementById("editWatchPort").value) || null,
+        memoryLimit: parseInt(document.getElementById("editMemoryLimit").value) || null
     };
 
     // If NPM, add script
@@ -674,20 +769,113 @@ document.getElementById("selectNpmScriptBtn")?.addEventListener("click", async (
     }
 });
 
-// --- ADVANCED ---
 window.openEnvEditor = async () => {
     const content = await ipcRenderer.invoke("read-env", currentViewingApp.path);
     if (content !== null) {
         document.getElementById("envContent").value = content;
+        // Reset to Text Mode always when opening, but skip syncing from empty grid
+        switchEnvMode('text', true); 
         document.getElementById("envModal").style.display = "flex";
     } else {
         showAlert("Dosya Bulunamadı", ".env dosyası mevcut değil.", "warning");
     }
 };
 window.saveEnvContent = async () => {
+    // If we are in grid mode, sync to textarea first
+    if (document.getElementById("envGridView").style.display === "block") {
+        syncGridToText();
+    }
+    
     const res = await ipcRenderer.invoke("save-env", { folderPath: currentViewingApp.path, content: document.getElementById("envContent").value });
     if (res.success) document.getElementById("envModal").style.display = "none";
 };
+
+// --- .env Visual Editor Logic ---
+window.switchEnvMode = (mode, skipSync = false) => {
+    const textBtn = document.getElementById("envTextModeBtn");
+    const gridBtn = document.getElementById("envGridModeBtn");
+    const textView = document.getElementById("envContent");
+    const gridView = document.getElementById("envGridView");
+
+    if (mode === "grid") {
+        if (!skipSync) syncTextToGrid();
+        textView.style.display = "none";
+        gridView.style.display = "block";
+        textBtn.classList.remove("active");
+        gridBtn.classList.add("active");
+    } else {
+        if (!skipSync) syncGridToText();
+        textView.style.display = "block";
+        gridView.style.display = "none";
+        textBtn.classList.add("active");
+        gridBtn.classList.remove("active");
+    }
+};
+
+function syncTextToGrid() {
+    const text = document.getElementById("envContent").value;
+    const lines = text.split("\n");
+    const pairs = [];
+
+    lines.forEach(line => {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith("#")) return; // Skip empty and comments for grid
+        
+        const firstEq = trimmed.indexOf("=");
+        if (firstEq !== -1) {
+            const key = trimmed.substring(0, firstEq).trim();
+            let value = trimmed.substring(firstEq + 1).trim();
+            // Remove quotes if present
+            if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+                value = value.substring(1, value.length - 1);
+            }
+            pairs.push({ key, value });
+        }
+    });
+
+    renderEnvGrid(pairs);
+}
+
+function syncGridToText() {
+    const rows = document.querySelectorAll(".env-row");
+    let text = "";
+    rows.forEach(row => {
+        const key = row.querySelector(".env-key").value.trim();
+        const value = row.querySelector(".env-value").value.trim();
+        if (key) {
+            text += `${key}=${value}\n`;
+        }
+    });
+    document.getElementById("envContent").value = text;
+}
+
+function renderEnvGrid(pairs) {
+    const list = document.getElementById("envGridList");
+    list.innerHTML = "";
+    
+    pairs.forEach((pair, index) => {
+        addEnvRow(pair.key, pair.value);
+    });
+}
+
+window.addEnvRow = (key = "", value = "") => {
+    const list = document.getElementById("envGridList");
+    const row = document.createElement("div");
+    row.className = "env-row";
+    row.innerHTML = `
+        <input type="text" class="form-input env-key" placeholder="ANAHTAR" value="${key}">
+        <span style="color:var(--text-dim);">=</span>
+        <input type="text" class="form-input env-value" placeholder="DEĞER" value="${value}">
+        <button class="env-delete-btn" onclick="this.parentElement.remove()"><i class="fa-solid fa-trash"></i></button>
+    `;
+    list.appendChild(row);
+};
+window.openProjectFolder = () => {
+    if (currentViewingApp) {
+        ipcRenderer.send("open-folder", currentViewingApp.path);
+    }
+};
+
 window.runMaintenance = (cmd) => ipcRenderer.send("run-maintenance", { appId: currentViewingApp.id, appPath: currentViewingApp.path, command: cmd });
 window.openExternalTerminal = () => ipcRenderer.send("open-terminal", currentViewingApp.path);
 
@@ -696,7 +884,7 @@ async function openSettings() {
     document.getElementById("winAutoStartToggle").checked = s.winAutoStart;
     document.getElementById("settingStartMinimized").checked = s.startMinimized;
     document.getElementById("autoUpdateToggle").checked = s.autoUpdate;
-    document.getElementById("currentVerText").innerText = "Sürüm: v1.1.0";
+    document.getElementById("currentVerText").innerText = "Sürüm: v1.1.1";
     
     // Highlight Active Theme
     const currentTheme = s.theme || 'cyber-amethyst';
@@ -711,9 +899,10 @@ window.setTheme = (name, save = true) => {
     document.documentElement.setAttribute('data-theme', name);
     
     // UI Update (Dots)
+    const currentTheme = name;
     document.querySelectorAll(".theme-dot").forEach(dot => {
         dot.classList.remove("active");
-        if (dot.onclick.toString().includes(name)) dot.classList.add("active");
+        if (dot.getAttribute("onclick").includes(currentTheme)) dot.classList.add("active");
     });
 
     if (save) {

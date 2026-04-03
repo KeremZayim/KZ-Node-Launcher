@@ -22,6 +22,8 @@ const {
 } = require("electron");
 const path = require("path");
 const Store = require("electron-store");
+const fs = require("fs");
+const net = require("net");
 const { spawn, exec } = require("child_process");
 const pidusage = require("pidusage");
 const { autoUpdater } = require("electron-updater"); // Yeni
@@ -57,8 +59,8 @@ autoUpdater.autoDownload = store.get("settings.autoUpdate", true);
 // --- 1. PENCERE OLUŞTURMA ---
 function createWindow() {
   mainWindow = new BrowserWindow({
-    width: 1100,
-    height: 750,
+    width: 1280,
+    height: 720,
     minWidth: 800,
     minHeight: 600,
     backgroundColor: "#121212",
@@ -140,6 +142,14 @@ function createTray() {
     path.join(__dirname, "public/images/icon.png")
   );
   tray = new Tray(icon);
+  tray.on("click", () => {
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      if (!mainWindow.isVisible()) mainWindow.show();
+      mainWindow.focus();
+    }
+  });
+
   tray.on("double-click", () => {
     if (mainWindow) {
       if (mainWindow.isMinimized()) mainWindow.restore();
@@ -148,10 +158,12 @@ function createTray() {
     }
   });
 
+  tray.setToolTip("KZ Node Launcher (v1.1.1)");
   tray.setContextMenu(
     Menu.buildFromTemplate([
-      { label: "Paneli Goster", click: () => mainWindow.show() },
+      { label: "Paneli Göster", click: () => mainWindow.show() },
       { label: "Hepsini Durdur", click: stopAllProcesses },
+      { label: "Destek", click: () => shell.openExternal("https://github.com/KeremZayim") },
       { type: "separator" },
       {
         label: "Cikis",
@@ -177,14 +189,14 @@ ipcMain.on("confirm-exit", () => {
 });
 
 
+ipcMain.on("open-folder", (event, folderPath) => {
+  shell.showItemInFolder(folderPath);
+});
+
 ipcMain.on("open-terminal", (event, folderPath) => {
   const { exec } = require("child_process");
   const command = process.platform === "win32" ? "start cmd" : "open -a Terminal";
   exec(command, { cwd: folderPath });
-});
-
-ipcMain.on("open-folder", (event, folderPath) => {
-  shell.openPath(folderPath);
 });
 
 
@@ -335,30 +347,74 @@ app.whenReady().then(() => {
 
 
   // Start Minimized Check
+  const isHiddenArg = process.argv.includes('--hidden');
   const settings = store.get("settings") || { startMinimized: false };
-  if (settings.startMinimized) {
+  
+  if (isHiddenArg || settings.startMinimized) {
     mainWindow.hide();
+  } else {
+    mainWindow.show();
   }
 
   setInterval(() => {
-    const activePids = Object.values(runningProcesses)
-      .map((p) => p.nodePid || p.pid)
-      .filter(Boolean);
+    const apps = store.get("apps") || [];
+    const activePids = Object.entries(runningProcesses)
+      .map(([id, p]) => ({ id, pid: p.nodePid || p.pid }))
+      .filter(p => p.pid);
+
     if (activePids.length > 0 && mainWindow && !mainWindow.isDestroyed()) {
-      pidusage(activePids, (err, stats) => {
-        if (!err) mainWindow.webContents.send("resource-update", stats);
+      const pidMap = activePids.reduce((acc, p) => ({ ...acc, [p.pid]: p.id }), {});
+      
+      pidusage(Object.keys(pidMap), (err, stats) => {
+        if (!err && stats) {
+          mainWindow.webContents.send("resource-update", stats);
+
+          // MEMORY LIMIT CHECK
+          Object.entries(stats).forEach(([pid, stat]) => {
+            const appId = pidMap[pid];
+            const appInfo = apps.find(a => a.id == appId);
+            
+            if (appInfo && appInfo.memoryLimit) {
+              const memMB = stat.memory / 1024 / 1024;
+              if (memMB > appInfo.memoryLimit) {
+                stopProcessLogic(appId); // Kill it
+                if (mainWindow && !mainWindow.isDestroyed()) {
+                  mainWindow.webContents.send("process-log", {
+                    appId,
+                    log: `\n[LIMIT] Hafıza sınırı (${appInfo.memoryLimit} MB) aşıldı (Şu an: ${memMB.toFixed(1)} MB). Süreç güvenlik nedeniyle durduruldu.`,
+                  });
+                }
+              }
+            }
+          });
+        }
       });
     }
   }, 2000);
 });
 
 // 1.6 - Node İşlemi Başlatma Fonksiyonu
-function startNodeProcess(appId, appPath, isAuto = false) {
+async function startNodeProcess(appId, appPath, isAuto = false) {
   if (runningProcesses[appId]) return;
-  if (isAuto) console.log(`>> OTO-BASLATMA: ${path.basename(appPath)}`);
-
+  
   const apps = store.get("apps") || [];
   const appInfo = apps.find(a => a.id === appId);
+
+  // PORT KONTROLÜ
+  if (appInfo && appInfo.watchPort) {
+    const inUse = await isPortInUse(appInfo.watchPort);
+    if (inUse) {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send("process-log", {
+          appId,
+          log: `\n[HATA] Port ${appInfo.watchPort} şu an başka bir uygulama tarafından kullanılıyor! Başlatma iptal edildi.`,
+        });
+      }
+      return;
+    }
+  }
+
+  if (isAuto) console.log(`>> OTO-BASLATMA: ${path.basename(appPath)}`);
   
   let command, args, cwd;
 
@@ -421,13 +477,32 @@ function startNodeProcess(appId, appPath, isAuto = false) {
   child.on("close", (code) => {
     const proc = runningProcesses[appId];
     if (proc && proc.child === child) {
+      const isWatchdogEnabled = appInfo && appInfo.watchdog;
+      
       delete runningProcesses[appId];
       updateUI(appId, false);
+
       if (mainWindow && !mainWindow.isDestroyed())
         mainWindow.webContents.send("process-log", {
           appId,
           log: `\n--- Kapanis (Kod: ${code}) ---`,
         });
+
+      // WATCHDOG LOGIC
+      if (isWatchdogEnabled && code !== 0 && code !== null) {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send("process-log", {
+            appId,
+            log: `\n[WATCHDOG] Beklenmedik kapanis tespit edildi. 2 saniye icinde yeniden baslatiliyor...`,
+          });
+        }
+        setTimeout(() => {
+          // Restart only if it's not already running (double check)
+          if (!runningProcesses[appId]) {
+            startNodeProcess(appId, appPath, true);
+          }
+        }, 2000);
+      }
     }
   });
 }
@@ -468,6 +543,28 @@ ipcMain.handle("read-package-scripts", async (event, folderPath) => {
   return null;
 });
 
+ipcMain.handle("get-logs", async (event, appId) => {
+  const fs = require("fs");
+  const logsDir = path.join(app.getPath("userData"), "logs");
+  const logFile = path.join(logsDir, `app_${appId}.log`);
+  if (fs.existsSync(logFile)) {
+    try {
+      const stats = fs.statSync(logFile);
+      const size = stats.size;
+      const readSize = Math.min(size, 100 * 1024); // Limit to 100KB
+      const fd = fs.openSync(logFile, 'r');
+      const buffer = Buffer.alloc(readSize);
+      fs.readSync(fd, buffer, 0, readSize, size - readSize);
+      fs.closeSync(fd);
+      return buffer.toString("utf8");
+    } catch (err) {
+      console.error("Log reading error:", err);
+      return "Loglar okunamadı.";
+    }
+  }
+  return "Henüz log kaydı yok.";
+});
+
 // --- GRUP & PROJE YÖNETİMİ ---
 
 ipcMain.handle("get-groups", () => store.get("groups") || []);
@@ -478,6 +575,16 @@ ipcMain.on("add-group", (event, groupName) => {
   groups.push(newGroup);
   store.set("groups", groups);
   event.sender.send("update-group-list", groups);
+});
+
+ipcMain.on("edit-group", (event, { id, name }) => {
+  let groups = store.get("groups") || [];
+  const index = groups.findIndex(g => g.id === id);
+  if (index !== -1) {
+    groups[index].name = name;
+    store.set("groups", groups);
+    event.sender.send("update-group-list", groups);
+  }
 });
 
 ipcMain.on("delete-group", (event, groupId) => {
@@ -564,6 +671,7 @@ ipcMain.on("update-settings", (event, newSettings) => {
     app.setLoginItemSettings({
       openAtLogin: newSettings.windowsStart,
       path: app.getPath("exe"),
+      args: ["--hidden"]
     });
   }
 });
@@ -787,31 +895,6 @@ ipcMain.on("kill-ghost-process", (event, pid) => {
   }
 });
 
-// --- LOG YÖNETİMİ ---
-
-function appendToFileLog(appId, logStr) {
-  const fs = require("fs");
-  const logsDir = path.join(app.getPath("userData"), "logs");
-  if (!fs.existsSync(logsDir)) fs.mkdirSync(logsDir, { recursive: true });
-  
-  const logFile = path.join(logsDir, `app_${appId}.log`);
-  fs.appendFileSync(logFile, `[${new Date().toLocaleString()}] ${logStr}`, "utf8");
-}
-
-ipcMain.handle("get-logs", async (event, appId) => {
-  const fs = require("fs");
-  const logFile = path.join(app.getPath("userData"), "logs", `app_${appId}.log`);
-  if (fs.existsSync(logFile)) {
-    try {
-      // Sadece son 5000 karakteri veya optimize edilmiş bir okumayı düşünebiliriz ama şimdilik tamamını gönderelim.
-      return fs.readFileSync(logFile, "utf8");
-    } catch (err) {
-      return `Log okuma hatasi: ${err.message}`;
-    }
-  }
-  return "Henüz log kaydı bulunmuyor.";
-});
-
 ipcMain.handle("clear-all-logs", async () => {
     const fs = require("fs");
     const logsDir = path.join(app.getPath("userData"), "logs");
@@ -823,12 +906,31 @@ ipcMain.handle("clear-all-logs", async () => {
             }
             return { success: true };
         } catch (err) {
-            console.error("Logs cleaning error:", err);
             return { success: false, error: err.message };
         }
     }
     return { success: true };
 });
+
+// --- LOG YÖNETİMİ ---
+
+function appendToFileLog(appId, logStr) {
+  const fs = require("fs");
+  const logsDir = path.join(app.getPath("userData"), "logs");
+  if (!fs.existsSync(logsDir)) fs.mkdirSync(logsDir, { recursive: true });
+  
+  const logFile = path.join(logsDir, `app_${appId}.log`);
+  fs.appendFileSync(logFile, `[${new Date().toLocaleString()}] ${logStr}`, "utf8");
+}
+
+function isPortInUse(port) {
+  return new Promise((resolve) => {
+    const server = net.createServer()
+      .once('error', (err) => resolve(err.code === 'EADDRINUSE'))
+      .once('listening', () => server.close().once('close', () => resolve(false)))
+      .listen(port);
+  });
+}
 
 
 

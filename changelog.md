@@ -1,3 +1,73 @@
+# Release Notes / Sürüm Notları - v1.1.1
+
+## [EN] English
+### 🚀 New Features
+- **Watchdog (Auto-Repair)**: Processes automatically restart if they crash unexpectedly, ensuring max uptime.
+- **Visual .env Editor**: A dual-mode (Grid/Text) interactive editor to safely manage environment variables.
+- **Batch Actions**: Sequential "Start All" and "Stop All" buttons in categories for cluster management.
+- **Port Conflict Guard**: Pre-checks port availability before launching to prevent address-in-use errors.
+- **Memory Guard (RAM Limit)**: Safety-terminates processes that exceed defined RAM limits to protect the host system.
+- **Quick Folder Access**: Instant explorer access to project locations via a new folder icon in the console.
+- **Modern Theme Selection**: Redesigned theme settings with interactive round icons and glowing active states.
+
+### 🐛 Bug Fixes & Refinements
+- **Explorer Interaction**: Fixed folder buttons to highlight the item in Explorer instead of opening in VS Code.
+- **IPC Stability**: Resolved double-fire events and improved terminal log synchronization between main and renderer.
+- **UI Polish**: Updated all internal version strings to v1.1.1 and refined HD layout spacing.
+
+---
+
+## [TR] Türkçe
+### 🚀 Yeni Özellikler
+- **Watchdog (Otomatik Yeniden Başlatma)**: Beklenmedik kapanmalarda projeleri otomatik saptar ve anında tekrar ayağa kaldırır.
+- **Görsel .env Editörü**: Tablo yapısında (Key-Value) güvenli, hızlı ve kolay çevre değişkenleri yönetimi.
+- **Toplu İşlemler**: Kategorilerdeki tüm projeleri tek tıkla topluca yönetebilme (Hepsini Başlat/Durdur).
+- **Port Çakışma Koruması**: Başlatma öncesi port meşguliyetini denetleyerek çakışmaları önceden engeller.
+- **Hafıza Sınırı (RAM Guard)**: Belirlediğiniz RAM limitini aşan süreçleri sisteminizi korumak için otomatik sonlandırır.
+- **Klasör Butonu**: Dosya konumuna doğrudan Explorer üzerinden (öğe seçili halde) hızlı erişim.
+- **Modern Tema Seçici**: Ayarlar ekranında dairesel interaktif ikonlarla yenilenen tema sistemi.
+
+### 🐛 Hata Düzeltmeleri ve İyileştirmeler
+- **Dosya Gezgini Düzeltmesi**: Klasör butonu artık öğeleri VS Code'da açmak yerine Explorer'da doğru konumu işaret eder.
+- **IPC Kararlılığı**: Tekrarlanan olay dinleyicileri (double-fire) ve terminal log senkronizasyon hataları giderildi.
+- **Görsel Düzen**: v1.1.1 için tüm UI metinleri senkronize edildi ve HD yerleşim boşlukları optimize edildi.
+
+---
+- **Watchdog (Auto-Repair)**: Processes automatically restart if they crash unexpectedly.
+- **Visual .env Editor**: Dual-mode Key-Value editor for safe environment variable management.
+- **Batch Actions**: Start or stop all applications in a category with a single click.
+- **Port Conflict Guard**: Checks for occupied ports before starting a process to prevent errors.
+- **Memory Guard (RAM Limit)**: Automatically kills processes that exceed defined RAM limits.
+- **Quick Folder Access**: New button to instantly open project locations in Explorer.
+- **Modern Theme Selection**: Interactive round icons and active highlighting in settings.
+
+### 🐛 Bug Fixes & Refinements
+- **Explorer Fix**: Folder buttons now highlight the item in Explorer instead of opening in VS Code.
+- **IPC Stability**: Resolved double-fire events and improved terminal log synchronization.
+- **Performance**: Optimized resource monitoring loop for better CPU/RAM efficiency.
+
+---
+
+## [TR] Türkçe
+### 🚀 Yeni Özellikler
+- **Watchdog (Otomatik Yeniden Başlatma)**: Beklenmedik kapanmalarda projeleri otomatik olarak tekrar ayağa kaldırır.
+- **Görsel .env Editörü**: Tablo yapısında güvenli ve kolay çevre değişkenleri yönetimi.
+- **Toplu İşlemler**: Kategorilerdeki tüm projeleri tek tıkla topluca yönetebilme.
+- **Port Çakışma Koruması**: Başlatma öncesi port meşguliyetini denetler ve sizi uyarır.
+- **Hafıza Sınırı (RAM Guard)**: Belirlediğiniz RAM limitini aşan süreçleri otomatik sonlandırır.
+- **Klasör Butonu**: Dosya konumuna doğrudan Explorer üzerinden hızlı erişim.
+- **Modern Tema Seçici**: Ayarlar ekranında dairesel interaktif ikonlarla yenilenen tema sistemi.
+
+### 🐛 Hata Düzeltmeleri ve İyileştirmeler
+- **Dosya Gezgini Düzeltmesi**: "Dosya Konumu" butonu artık Explorer'da doğru konumu işaret eder.
+- **IPC Kararlılığı**: Tekrarlanan olay dinleyicileri ve senkronizasyon hataları giderildi.
+- **Performans**: Kaynak takibi ve monitor döngüleri optimize edildi.
+
+
+---
+
+# Release Notes / Sürüm Notları - v1.1.0
+
 # Release Notes / Sürüm Notları - v1.1.0
 
 ## [EN] English
