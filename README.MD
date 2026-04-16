@@ -1,6 +1,6 @@
 # 🚀 KZ Node Launcher
 
-![Version](https://img.shields.io/badge/Version-1.1.1-purple?style=for-the-badge) ![Electron](https://img.shields.io/badge/Electron-30.0.0-blue?style=for-the-badge) ![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge) ![Author](https://img.shields.io/badge/Author-Kerem%20Zayim-red?style=for-the-badge)
+![Version](https://img.shields.io/badge/Version-1.1.2-purple?style=for-the-badge) ![Electron](https://img.shields.io/badge/Electron-39.2.7-blue?style=for-the-badge) ![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge) ![Author](https://img.shields.io/badge/Author-Kerem%20Zayim-red?style=for-the-badge)
 
 **KZ Node Launcher**, Node.js projelerinizi (botlar, sunucular, API'ler) tek bir merkezden yönetmenizi, izlemenizi ve otomatikleştirmenizi sağlayan, geliştirici dostu bir masaüstü uygulamasıdır. 
 
@@ -8,7 +8,7 @@ Modern arayüzü ve güçlü arka plan yönetimi ile projelerinizi terminal karm
 
 ---
 
-## 🔥 Yeni Nesil Özellikler (v1.1.1)
+## 🔥 Yeni Nesil Özellikler (v1.1.2)
 
 Uygulamanın bu sürümü, standart bir başlatıcıyı tam kapsamlı bir **Süreç Yönetim Sistemi**'ne dönüştürür:
 

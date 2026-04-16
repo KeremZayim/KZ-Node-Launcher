@@ -28,8 +28,57 @@ const { spawn, exec } = require("child_process");
 const pidusage = require("pidusage");
 const { autoUpdater } = require("electron-updater"); // Yeni
 const log = require("electron-log"); // Yeni
+const DiscordRPC = require("discord-rpc");
 
 const store = new Store();
+
+// --- DISCORD RPC ---
+let rpc = null;
+let rpcEnabled = false;
+let rpcStartTimestamp = new Date();
+
+function initDiscordRPC() {
+  if (rpc) return;
+  rpc = new DiscordRPC.Client({ transport: "ipc" });
+  rpc.on("ready", () => {
+    updateDiscordRPC();
+  });
+  rpc.login({ clientId: "1491523191578034226" }).catch((err) => {
+    log.error("Discord RPC Hatasi:", err);
+    rpc = null;
+  });
+}
+
+function updateDiscordRPC() {
+  if (!rpc || !rpcEnabled) return;
+  const activeCount = Object.keys(runningProcesses).length;
+  let stateStr = activeCount > 0 ? `${activeCount} Proje Aktif` : "Beklemede";
+  
+  rpc.setActivity({
+    details: "Node.js Projelerini Yönetiyor",
+    state: stateStr,
+    startTimestamp: rpcStartTimestamp,
+    largeImageKey: "icon",
+    largeImageText: "KZ Node Launcher",
+    instance: false,
+  }).catch(() => {});
+}
+
+function stopDiscordRPC() {
+  if (rpc) {
+    try { 
+      rpc.clearActivity().then(() => {
+        rpc.destroy();
+      }).catch(() => {
+        rpc.destroy();
+      });
+    } catch(e) {
+      if (rpc) rpc.destroy();
+    }
+    rpc = null;
+  }
+}
+// --- DISCORD RPC BITIS ---
 // --- TEKİL ÖRNEK KİLİDİ (SINGLE INSTANCE LOCK) ---
 const gotTheLock = app.requestSingleInstanceLock();
 if (!gotTheLock) {
@@ -70,6 +119,7 @@ function createWindow() {
     webPreferences: { nodeIntegration: true, contextIsolation: false },
   });
   mainWindow.loadFile("public/index.html");
+  mainWindow.maximize();
   mainWindow.webContents.on("did-finish-load", () => {
     if (!isInitialScanDone) setTimeout(runWatchdog, 1000);
   });
@@ -185,7 +235,7 @@ function createTray() {
     }
   });
 
-  tray.setToolTip("KZ Node Launcher (v1.1.1)");
+  tray.setToolTip("KZ Node Launcher (v1.1.2)");
   tray.setContextMenu(
     Menu.buildFromTemplate([
       { label: "Paneli Göster", click: () => mainWindow.show() },
@@ -342,6 +392,7 @@ function updateUI(appId, isRunning) {
       isRunning,
     });
   }
+  updateDiscordRPC();
 }
 
 function stopProcessLogic(appId) {
@@ -372,6 +423,13 @@ app.whenReady().then(() => {
     autoUpdater.checkForUpdatesAndNotify();
   }
 
+  // Discord RPC Baslatma
+  const s = store.get("settings") || {};
+  rpcEnabled = !!s.discordRpc;
+  if (rpcEnabled) {
+    initDiscordRPC();
+  }
+
 
   // Start Minimized Check
   const isHiddenArg = process.argv.includes('--hidden');
@@ -394,7 +452,12 @@ app.whenReady().then(() => {
       
       pidusage(Object.keys(pidMap), (err, stats) => {
         if (!err && stats) {
-          mainWindow.webContents.send("resource-update", stats);
+          const statsByAppId = {};
+          Object.entries(stats).forEach(([pid, stat]) => {
+            const appId = pidMap[pid];
+            if (appId) statsByAppId[appId] = stat;
+          });
+          mainWindow.webContents.send("resource-update", statsByAppId);
 
           // MEMORY LIMIT CHECK
           Object.entries(stats).forEach(([pid, stat]) => {
@@ -641,7 +704,10 @@ ipcMain.handle("get-apps", () => store.get("apps") || []);
 
 ipcMain.handle(
   "get-process-pid",
-  (event, appId) => runningProcesses[appId]?.pid
+  (event, appId) => {
+    const proc = runningProcesses[appId];
+    return proc ? (proc.nodePid || proc.pid) : null;
+  }
 );
 
 ipcMain.handle(
@@ -700,6 +766,17 @@ ipcMain.on("update-settings", (event, newSettings) => {
       path: app.getPath("exe"),
       args: ["--hidden"]
     });
+  }
+
+  if (newSettings.hasOwnProperty("discordRpc")) {
+    rpcEnabled = newSettings.discordRpc;
+    if (rpcEnabled && !rpc) {
+      initDiscordRPC();
+    } else if (!rpcEnabled && rpc) {
+      stopDiscordRPC();
+    } else if (rpcEnabled && rpc) {
+      updateDiscordRPC();
+    }
   }
 });
 
@@ -920,6 +997,32 @@ ipcMain.on("kill-ghost-process", (event, pid) => {
       console.error("Ghost kill error:", e);
     }
   }
+});
+
+ipcMain.handle("get-log-status", async (event, appId) => {
+    const fs = require("fs");
+    const logsDir = path.join(app.getPath("userData"), "logs");
+    const logFile = path.join(logsDir, `app_${appId}.log`);
+    if (fs.existsSync(logFile)) {
+        const stats = fs.statSync(logFile);
+        return { exists: true, size: stats.size };
+    }
+    return { exists: false, size: 0 };
+});
+
+ipcMain.handle("delete-app-log", async (event, appId) => {
+    const fs = require("fs");
+    const logsDir = path.join(app.getPath("userData"), "logs");
+    const logFile = path.join(logsDir, `app_${appId}.log`);
+    if (fs.existsSync(logFile)) {
+        try {
+            fs.unlinkSync(logFile);
+            return { success: true };
+        } catch (err) {
+            return { success: false, error: err.message };
+        }
+    }
+    return { success: true };
 });
 
 ipcMain.handle("clear-all-logs", async () => {

@@ -58,7 +58,7 @@
                 </div>
             </nav>
             <div class="sidebar-footer">
-                <div id="versionText">v1.1.1</div>
+                <div id="versionText">v1.1.2</div>
                 <a id="githubBtn" href="#" title="GitHub: Kerem Zayim">
                     <i class="fa-brands fa-github"></i>
                     <span>Kerem Zayim</span>
@@ -76,7 +76,7 @@
                     <div class="splash-progress"></div>
                 </div>
                 <div class="splash-status">SİSTEM HAZIRLANIYOR...</div>
-                <div class="splash-version">v1.1.1</div>
+                <div class="splash-version">v1.1.2</div>
             </div>
         </div>
 
@@ -158,6 +158,13 @@
                             <p>Uygulama tarafından biriktirilen tüm logları silerek alan açın.</p>
                         </div>
                     </div>
+                    <div class="app-card" onclick="openLogManager()" style="cursor: pointer;">
+                        <div class="card-body" style="text-align: center;">
+                            <i class="fa-solid fa-file-lines" style="font-size:32px; color:var(--accent-cyan); margin-bottom:15px;"></i>
+                            <h3>Log Yönetimi</h3>
+                            <p>Her uygulamanın loglarını ayrı ayrı inceleyin ve yönetin.</p>
+                        </div>
+                    </div>
                     <div class="app-card" onclick="document.getElementById('scanGhostsBtn').click()" style="cursor: pointer;">
                         <div class="card-body" style="text-align: center;">
                             <i class="fa-solid fa-ghost" style="font-size:32px; color:var(--warning); margin-bottom:15px;"></i>
@@ -165,6 +172,24 @@
                             <p>Arka planda yetim kalan node süreçlerini saptamaya zorla.</p>
                         </div>
                     </div>
+                </div>
+            </div>
+
+            <!-- Logs Management View -->
+            <div id="logs-view" class="view-content" style="display: none;">
+                <header class="view-header">
+                    <div class="view-title-group">
+                        <div style="display: flex; align-items: center; gap: 15px;">
+                            <button class="btn-secondary" onclick="switchView('tools-view')" style="padding: 10px;"><i class="fa-solid fa-arrow-left"></i></button>
+                            <div>
+                                <h1>Log Yönetimi</h1>
+                                <p>Tüm uygulamaların disk üzerindeki log kayıtları</p>
+                            </div>
+                        </div>
+                    </div>
+                </header>
+                <div class="grid-container" id="logsListContainer">
+                    <!-- Log kartları buraya gelecek -->
                 </div>
             </div>
 
@@ -399,6 +424,10 @@
                     <span>Otomatik Güncelleme</span>
                     <label class="switch"><input type="checkbox" id="autoUpdateToggle"><span class="slider"></span></label>
                 </div>
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span>Discord RPC (Durum Göstergesi)</span>
+                    <label class="switch"><input type="checkbox" id="discordRpcToggle"><span class="slider"></span></label>
+                </div>
                 <div class="form-group" style="border-top: 1px solid var(--glass-border); padding-top: 15px; margin-top: 5px;">
                     <label class="form-label">Görünüm (Tema Seçimi)</label>
                     <div class="theme-selector">
@@ -417,10 +446,29 @@
         </div>
     </div>
 
+    <div id="logViewerModal" class="modal-overlay">
+        <div class="modal-content" style="width: 900px; height: 85vh; display: flex; flex-direction: column;">
+            <div class="modal-header">
+                <div style="display: flex; flex-direction: column;">
+                    <span id="logViewerTitle">Uygulama Logları</span>
+                    <small id="logViewerSubtitle" style="opacity: 0.6; font-size: 11px;">...</small>
+                </div>
+                <i class="fa-solid fa-xmark" onclick="document.getElementById('logViewerModal').style.display='none'"></i>
+            </div>
+            <div id="logViewerContent" class="terminal-container" style="flex: 1; margin: 20px 0; font-size: 12px; background: rgba(0,0,0,0.3);">
+                <!-- Log content will be here -->
+            </div>
+            <div class="modal-footer" style="justify-content: flex-end;">
+                <button class="btn-secondary" onclick="copyLogToClipboard()"><i class="fa-solid fa-copy"></i> Kopyala</button>
+                <button class="btn-primary" onclick="document.getElementById('logViewerModal').style.display='none'">Kapat</button>
+            </div>
+        </div>
+    </div>
+
     <div id="changelogModal" class="modal-overlay">
         <div class="modal-content" style="width: 700px; max-height: 80vh; display: flex; flex-direction: column;">
             <div class="modal-header">
-                <span id="changelogTitle">Yenilikler (v1.1.1)</span>
+                <span id="changelogTitle">Yenilikler (v1.1.2)</span>
                 <i class="fa-solid fa-xmark" onclick="document.getElementById('changelogModal').style.display='none'"></i>
             </div>
             <div id="changelogBody" class="markdown-body" style="padding: 25px; overflow-y: auto; flex: 1; font-size: 14px; line-height: 1.7; color: var(--text-secondary);">

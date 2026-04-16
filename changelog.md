@@ -1,3 +1,31 @@
+# Release Notes / Sürüm Notları - v1.1.2
+
+## [EN] English
+### 🚀 New Features
+- **Discord Rich Presence**: Share your active project status directly on your Discord profile.
+- **Persistent Monitoring**: CPU and RAM charts now persist their history when switching between dashboard and console views.
+- **Maintenance Tools**: Run `npm install` and `npm update` directly from the application console.
+- **Improved Log Rendering**: Terminal logs are now fully stripped of ANSI codes and safely escaped for better readability.
+
+### 🐛 Bug Fixes & Refinements
+- **Log Initialization**: Fixed an issue where historical logs were not being cleaned during initial load.
+- **Version Synchronization**: Updated all UI and system strings to reflect v1.1.2.
+
+---
+
+## [TR] Türkçe
+### 🚀 Yeni Özellikler
+- **Discord Durum Göstergesi (RPC)**: Aktif projelerinizin durumunu Discord profilinizde zengin içerik olarak paylaşın.
+- **Kalıcı Kaynak Takibi**: Sayfalar arası geçişte CPU ve RAM grafiklerindeki veri geçmişi artık kaybolmaz.
+- **Bakım Araçları**: Uygulama içinden doğrudan `npm install` ve `npm update` komutlarını çalıştırabilme özelliği eklendi.
+- **İyileştirilmiş Log Görünümü**: Terminal logları artık ANSI kodlarından tamamen arındırılır ve daha güvenli bir şekilde işlenir.
+
+### 🐛 Hata Düzeltmeleri ve İyileştirmeler
+- **Log Başlatma Hatası**: Geçmiş logların yüklenirken temizlenmemesi sorunu giderildi.
+- **Versiyon Senkronizasyonu**: Tüm arayüz ve sistem metinleri v1.1.2 olarak güncellendi.
+
+---
+
 # Release Notes / Sürüm Notları - v1.1.1
 
 ## [EN] English

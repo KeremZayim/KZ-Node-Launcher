@@ -44,6 +44,7 @@ let currentSelectedIcon = "🚀";
 let appLogs = {};
 let currentFilter = "all";
 let currentSort = "status";
+let resourceHistory = {};
 
 // --- INITIALIZATION ---
 document.addEventListener("DOMContentLoaded", async () => {
@@ -166,7 +167,15 @@ function initModals() {
 
     // Settings
     document.getElementById("openSettingsBtn")?.addEventListener("click", openSettings);
-    document.getElementById("closeSettingsBtn")?.addEventListener("click", () => settingsModal.style.display = "none");
+    document.getElementById("closeSettingsBtn")?.addEventListener("click", () => {
+        ipcRenderer.send("update-settings", {
+            windowsStart: document.getElementById("winAutoStartToggle").checked,
+            startMinimized: document.getElementById("settingStartMinimized").checked,
+            autoUpdate: document.getElementById("autoUpdateToggle").checked,
+            discordRpc: document.getElementById("discordRpcToggle").checked
+        });
+        settingsModal.style.display = "none";
+    });
 
     // Güncellemeleri Denetle
     document.getElementById("checkUpdateBtn")?.addEventListener("click", () => {
@@ -506,12 +515,15 @@ window.handleCardAction = (appId, action) => {
 let cpuChart = null;
 let ramChart = null;
 
-function initChart() {
+function initChart(initialCpu = null, initialRam = null) {
     const cpuCtx = document.getElementById('cpuChart').getContext('2d');
     const ramCtx = document.getElementById('ramChart').getContext('2d');
     
     if (cpuChart) cpuChart.destroy();
     if (ramChart) ramChart.destroy();
+
+    const lastCpu = initialCpu ? initialCpu[initialCpu.length - 1] : 0;
+    const lastRam = initialRam ? initialRam[initialRam.length - 1] : 0;
 
     const commonOptions = {
         responsive: true, maintainAspectRatio: false,
@@ -528,7 +540,8 @@ function initChart() {
         data: {
             labels: Array(20).fill(''),
             datasets: [{ 
-                label: 'CPU %', data: Array(20).fill(0), 
+                label: `CPU: %${lastCpu.toFixed(0)}`, 
+                data: initialCpu || Array(20).fill(0), 
                 borderColor: '#7000ff', tension: 0.4, fill: true, 
                 backgroundColor: 'rgba(112,0,255,0.05)', pointRadius: 0 , borderWidth: 2
             }]
@@ -541,12 +554,13 @@ function initChart() {
         data: {
             labels: Array(20).fill(''),
             datasets: [{ 
-                label: 'RAM MB', data: Array(20).fill(0), 
+                label: `RAM: ${lastRam.toFixed(0)}MB`, 
+                data: initialRam || Array(20).fill(0), 
                 borderColor: '#00f2fe', tension: 0.4, fill: true, 
                 backgroundColor: 'rgba(0,242,254,0.05)', pointRadius: 0, borderWidth: 2
             }]
         },
-        options: commonOptions // Dynamically scales because no suggestedMax
+        options: commonOptions
     });
 }
 
@@ -557,11 +571,23 @@ async function openConsolePage(app) {
     currentAppPid = await ipcRenderer.invoke("get-process-pid", app.id);
     
     const history = await ipcRenderer.invoke("get-logs", app.id);
-    terminalOutput.innerHTML = `<div>${history.replace(/\n/g, '<br>')}</div>`;
+    const cleanHistory = stripAnsi(history);
+    terminalOutput.innerHTML = `<div>${escapeHtml(cleanHistory).replace(/\n/g, '<br>')}</div>`;
     
     switchView("console-view");
-    initChart();
+    
+    // Load persisted resource history if exists
+    const backgroundHistory = resourceHistory[app.id] || { cpu: Array(20).fill(0), ram: Array(20).fill(0) };
+    initChart(backgroundHistory.cpu, backgroundHistory.ram);
+    
     updateProcessStatusUI(app.id);
+}
+
+// HTML Karakterlerini Temizleme (XSS Koruması)
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
 }
 
 // --- IPC EVENTS ---
@@ -573,8 +599,8 @@ function stripAnsi(text) {
 
 ipcRenderer.on("process-log", (event, { appId, log }) => {
     if (currentViewingApp && currentViewingApp.id === appId) {
-        const cleanLog = stripAnsi(log).replace(/\n/g, '<br>');
-        terminalOutput.innerHTML += `<div>${cleanLog}</div>`;
+        const cleanLog = stripAnsi(log);
+        terminalOutput.innerHTML += `<div>${escapeHtml(cleanLog).replace(/\n/g, '<br>')}</div>`;
         
         // Auto-scroll to bottom
         terminalOutput.scrollTop = terminalOutput.scrollHeight;
@@ -582,27 +608,49 @@ ipcRenderer.on("process-log", (event, { appId, log }) => {
 });
 
 ipcRenderer.on("resource-update", (event, stats) => {
-    if (currentViewingApp && currentAppPid && stats[currentAppPid] && cpuChart && ramChart) {
-        const stat = stats[currentAppPid];
-        if (stat) {
-            const cpu = stat.cpu;
-            const mem = stat.memory / 1024 / 1024;
+    Object.entries(stats).forEach(([appId, stat]) => {
+        const cpu = stat.cpu;
+        const mem = stat.memory / 1024 / 1024;
+
+        // Ensure history object exists for this app
+        if (!resourceHistory[appId]) {
+            resourceHistory[appId] = {
+                cpu: Array(20).fill(0),
+                ram: Array(20).fill(0)
+            };
+        }
+
+        // Push new data and shift
+        resourceHistory[appId].cpu.push(cpu);
+        resourceHistory[appId].cpu.shift();
+        resourceHistory[appId].ram.push(mem);
+        resourceHistory[appId].ram.shift();
+
+        // If this is the app currently being viewed, update the live UI/Charts
+        if (currentViewingApp && currentViewingApp.id == appId) {
             document.getElementById("cpuValue").innerText = cpu.toFixed(1) + "%";
             document.getElementById("memValue").innerText = mem.toFixed(1) + " MB";
             
-            cpuChart.data.datasets[0].data.push(cpu);
-            cpuChart.data.datasets[0].data.shift();
-            cpuChart.update('none');
+            if (cpuChart && ramChart) {
+                // Update Chart Labels (Legend)
+                cpuChart.data.datasets[0].label = `CPU: %${cpu.toFixed(0)}`;
+                ramChart.data.datasets[0].label = `RAM: ${mem.toFixed(0)}MB`;
 
-            ramChart.data.datasets[0].data.push(mem);
-            ramChart.data.datasets[0].data.shift();
-            ramChart.update('none');
+                cpuChart.data.datasets[0].data = resourceHistory[appId].cpu;
+                ramChart.data.datasets[0].data = resourceHistory[appId].ram;
+
+                cpuChart.update('none');
+                ramChart.update('none');
+            }
         }
-    }
+    });
 });
 
-ipcRenderer.on("app-status-change", (event, { appId, isRunning }) => {
-    if (currentViewingApp && currentViewingApp.id === appId) updateProcessStatusUI(appId);
+ipcRenderer.on("app-status-change", async (event, { appId, isRunning }) => {
+    if (currentViewingApp && currentViewingApp.id === appId) {
+        updateProcessStatusUI(appId);
+        currentAppPid = await ipcRenderer.invoke("get-process-pid", appId);
+    }
     loadAndRenderApps();
 });
 
@@ -884,7 +932,8 @@ async function openSettings() {
     document.getElementById("winAutoStartToggle").checked = s.winAutoStart;
     document.getElementById("settingStartMinimized").checked = s.startMinimized;
     document.getElementById("autoUpdateToggle").checked = s.autoUpdate;
-    document.getElementById("currentVerText").innerText = "Sürüm: v1.1.1";
+    if (document.getElementById("discordRpcToggle")) document.getElementById("discordRpcToggle").checked = !!s.discordRpc;
+    document.getElementById("currentVerText").innerText = "Sürüm: v1.1.2";
     
     // Highlight Active Theme
     const currentTheme = s.theme || 'cyber-amethyst';
@@ -1112,3 +1161,90 @@ ipcRenderer.on("update-status", (event, message) => {
         showAlert("Güncelleme Hatası", message, "error");
     }
 });
+
+// --- LOG MANAGEMENT LOGIC ---
+
+window.openLogManager = async () => {
+    switchView("logs-view");
+    renderLogsList();
+};
+
+async function renderLogsList() {
+    const apps = await ipcRenderer.invoke("get-apps");
+    const container = document.getElementById("logsListContainer");
+    if (!container) return;
+    
+    container.innerHTML = "";
+    
+    for (const app of apps) {
+        const status = await ipcRenderer.invoke("get-log-status", app.id);
+        const card = document.createElement("div");
+        card.className = "app-card";
+        card.style.padding = "20px";
+        
+        card.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 15px;">
+                <div style="background: rgba(112, 0, 255, 0.1); width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 20px;">
+                    ${(app.icon && app.icon.length > 5) ? '<i class="fa-solid fa-file-code"></i>' : (app.icon || "🚀")}
+                </div>
+                <div class="stat-chip" style="font-size: 10px; border-radius: 6px;">
+                    ${status.exists ? formatBytes(status.size) : "LOG YOK"}
+                </div>
+            </div>
+            <h3 style="margin-bottom: 5px; font-size: 16px;">${app.name}</h3>
+            <p style="font-size: 11px; opacity: 0.5; margin-bottom: 20px; word-break: break-all;">${app.path}</p>
+            <div style="display: flex; gap: 10px; margin-top: auto;">
+                <button class="mini-btn" onclick="viewLog(${app.id}, '${app.name.replace(/'/g, "\\'")}')" ${!status.exists ? 'disabled' : ''} style="flex: 1; justify-content: center;">
+                    <i class="fa-solid fa-eye"></i> İNCELE
+                </button>
+                <button class="mini-btn" onclick="clearAppLog(${app.id}, '${app.name.replace(/'/g, "\\'")}')" ${!status.exists ? 'disabled' : ''} style="flex: 0.5; justify-content: center; color: var(--danger); border-color: rgba(239, 68, 68, 0.1);">
+                    <i class="fa-solid fa-trash-can"></i>
+                </button>
+            </div>
+        `;
+        container.appendChild(card);
+    }
+}
+
+window.viewLog = async (appId, appName) => {
+    const content = await ipcRenderer.invoke("get-logs", appId);
+    const modal = document.getElementById("logViewerModal");
+    const title = document.getElementById("logViewerTitle");
+    const subtitle = document.getElementById("logViewerSubtitle");
+    const contentEl = document.getElementById("logViewerContent");
+    
+    title.innerText = `${appName} - Log İzleyici`;
+    subtitle.innerText = `Son 100KB'lık veri görüntüleniyor`;
+    contentEl.innerHTML = `<div>${content.replace(/\n/g, '<br>')}</div>`;
+    contentEl.scrollTop = contentEl.scrollHeight;
+    
+    modal.style.display = "flex";
+};
+
+window.clearAppLog = async (appId, appName) => {
+    const confirm = await showConfirm("Logu Sil", `"${appName}" projesine ait tüm log kayıtları silinecek. Emin misiniz?`);
+    if (confirm) {
+        const res = await ipcRenderer.invoke("delete-app-log", appId);
+        if (res.success) {
+            showAlert("Log Silindi", "Log dosyası başarıyla silindi.", "success");
+            renderLogsList(); // Listeyi güncelle
+        } else {
+            showAlert("Hata", "Log silinirken bir hata oluştu: " + res.error, "error");
+        }
+    }
+};
+
+window.copyLogToClipboard = () => {
+    const content = document.getElementById("logViewerContent").innerText;
+    navigator.clipboard.writeText(content);
+    showAlert("Kopyalandı", "Log içeriği panoya kopyalandı.", "success");
+};
+
+function formatBytes(bytes, decimals = 2) {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const dm = decimals < 0 ? 0 : decimals;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+}
